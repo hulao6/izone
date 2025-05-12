@@ -73,11 +73,36 @@
                 <a class="nav-link py-md-3 {% if request.path == friend_url %}active{% endif %}"
                    href="{{ friend_url }}">友情链接</a>
             </li>
+
+            <!-- 控制台 -->
+            {% if user.is_staff %}
+            <li class="nav-item dropdown d-xs-block d-sm-none d-lg-block">
+                <a class="nav-link dropdown-toggle py-md-3" href="#" id="admin-link" role="button"
+                   data-toggle="dropdown"
+                   aria-haspopup="true"
+                   aria-expanded="false"
+                >控制台</a>
+                <div class="dropdown-menu dropdown-menu-left mt-0 border-0" aria-labelledby="navbarDropdown">
+                    <a class="dropdown-item pl-3" href="{% url 'admin:index' %}"><i
+                                    class="fa fa-fw fa-key text-info mr-2"></i>后台管理</a>
+                            <a class="dropdown-item pl-3" href="{% url 'blog:dashboard' %}"><i
+                                    class="fa fa-fw fa-line-chart text-info mr-2"></i>网站看板</a>
+                            <a class="dropdown-item pl-3" href="{% url 'monitor:index' %}"><i
+                                    class="fa fa-fw fa-tachometer text-info mr-2"></i>监控面板</a>
+                            <a class="dropdown-item pl-3" href="{% url 'blog:task_run' %}"><i
+                                    class="fa fa-fw fa-tasks text-info mr-2"></i>执行任务</a>
+                            <a class="dropdown-item pl-3" href="{% url 'admin:blog_article_add' %}"><i
+                                    class="fa fa-fw fa-plus text-info mr-2"></i>新增文章</a>
+                </div>
+            </li>
+            {% endif %}
+
             <li class="nav-item mr-2">
                 {% url 'blog:about' as about_url %}
                 <a class="nav-link py-md-3 {% if request.path == about_url %}active{% endif %}"
                    href="{{ about_url }}">关于</a>
             </li>
+
             <form class="nav-item navbar-form py-md-2 mr-2" role="search" method="get" id="searchform"
                   action="{% url 'blog:search_view' %}">
                 <div class="input-group">
@@ -107,18 +132,6 @@
                          aria-labelledby="navbarDropdown">
                         <a class="dropdown-item pl-3" href="{% url 'oauth:profile' %}"><i
                                 class="fa fa-fw fa-user text-info mr-2"></i>个人资料</a>
-                        {% if user.is_staff %}
-                            <a class="dropdown-item pl-3" href="{% url 'admin:index' %}"><i
-                                    class="fa fa-fw fa-key text-info mr-2"></i>后台管理</a>
-                            <a class="dropdown-item pl-3" href="{% url 'blog:dashboard' %}"><i
-                                    class="fa fa-fw fa-line-chart text-info mr-2"></i>网站看板</a>
-                            <a class="dropdown-item pl-3" href="{% url 'monitor:index' %}"><i
-                                    class="fa fa-fw fa-tachometer text-info mr-2"></i>监控面板</a>
-                            <a class="dropdown-item pl-3" href="{% url 'blog:task_run' %}"><i
-                                    class="fa fa-fw fa-tasks text-info mr-2"></i>执行任务</a>
-                            <a class="dropdown-item pl-3" href="{% url 'admin:blog_article_add' %}"><i
-                                    class="fa fa-fw fa-plus text-info mr-2"></i>新增文章</a>
-                        {% endif %}
                         {% url 'comment:notification_no_read' as no_read_url %}
                         {% url 'comment:notification' as read_url %}
                         <a class="dropdown-item pl-3"
