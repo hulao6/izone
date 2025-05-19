@@ -82,6 +82,11 @@ IZONE_TOOLS = {
             'url': 'tool:json2yaml',
             'img': 'tool/img/json2yaml.png',
             'desc': '在线JSON/YAML互转工具，轻松实现JSON转YAML，YAML转JSON'
+        }, {
+            'name': '时间戳转换',
+            'url': 'tool:timestamp',
+            'img': 'tool/img/timestamp.png',
+            'desc': '在线时间戳转换工具，支持秒和毫秒互换、日期时间互转'
         }]
     },
     'web': {

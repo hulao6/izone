@@ -186,3 +186,7 @@ def base64(request):
 @add_views('tool:json2yaml', 'JSON/YAML互转工具')
 def json2yaml(request):
     return render(request, 'tool/json2yaml.html')
+
+@add_views('tool:timestamp', '时间戳转换工具')
+def timestamp(request):
+    return render(request, 'tool/timestamp.html')
