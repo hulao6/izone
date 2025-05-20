@@ -68,12 +68,6 @@
             <!-- 个人外链 -->
             {% load_menu_link %}
 
-            <li class="nav-item">
-                {% url 'blog:friend' as friend_url %}
-                <a class="nav-link py-md-3 {% if request.path == friend_url %}active{% endif %}"
-                   href="{{ friend_url }}">友情链接</a>
-            </li>
-
             <!-- 控制台 -->
             {% if user.is_staff %}
             <li class="nav-item dropdown d-xs-block d-sm-none d-lg-block">
@@ -96,6 +90,12 @@
                 </div>
             </li>
             {% endif %}
+
+            <li class="nav-item">
+                {% url 'blog:friend' as friend_url %}
+                <a class="nav-link py-md-3 {% if request.path == friend_url %}active{% endif %}"
+                   href="{{ friend_url }}">友情链接</a>
+            </li>
 
             <li class="nav-item mr-2">
                 {% url 'blog:about' as about_url %}
