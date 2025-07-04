@@ -766,5 +766,22 @@ msgstr "社交账号"
 msgid "Social application tokens"
 msgstr "社交应用tokens"
 
-msgid "Social applications"
+msgid "social application"
 msgstr "社交应用"
+
+msgid "social applications"
+msgstr "社交应用"
+
+msgid "social account"
+msgstr "社交账号"
+
+#: socialaccount/models.py:106
+msgid "social accounts"
+msgstr "社交账号"
+
+msgid "social application token"
+msgstr "社交应用tokens"
+
+#: socialaccount/models.py:145
+msgid "social application tokens"
+msgstr "社交应用tokens"
