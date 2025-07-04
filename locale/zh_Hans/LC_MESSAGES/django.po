@@ -618,7 +618,7 @@ msgstr "运行中任务的当前状态"
 
 #: env/lib/python3.12/site-packages/django_celery_results/models.py:58
 msgid "Worker"
-msgstr "Worker"
+msgstr "执行 Worker"
 
 #: env/lib/python3.12/site-packages/django_celery_results/models.py:58
 msgid "Worker that executes the task"
@@ -753,3 +753,18 @@ msgstr "分组结果"
 #~| msgid "task \"{0}\" not found"
 #~ msgid "task \"{not_found_task_name}\" not found"
 #~ msgstr "未找到\"{0}\"任务"
+
+msgid "Accounts"
+msgstr "账号管理"
+
+msgid "Social Accounts"
+msgstr "社交账号管理"
+
+msgid "Social accounts"
+msgstr "社交账号"
+
+msgid "Social application tokens"
+msgstr "社交应用tokens"
+
+msgid "Social applications"
+msgstr "社交应用"
