@@ -10,7 +10,7 @@ import requests
 from django.db.models import Sum
 
 from blog.models import Article, ArticleView, PageView
-from blog.views import make_markdown
+from blog.views import make_markdown, preprocess_mermaid_blocks
 
 
 def get_link_status(url):
@@ -57,8 +57,9 @@ def action_update_article_cache():
         # 设置不存在的缓存
         if md_key not in keys:
             md = make_markdown()
+            processed_content, has_mermaid = preprocess_mermaid_blocks(obj.body)
             # 设置过期时间的时候分散时间，不要设置成同一时间
-            cache.set(md_key, (md.convert(obj.body), md.toc), 3600 * 24 + 10 * done_num)
+            cache.set(md_key, (md.convert(processed_content), md.toc, has_mermaid), 3600 * 24 + 10 * done_num)
             done_num += 1
     data = {'total': total_num, 'done': done_num}
     return data
