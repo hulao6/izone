@@ -171,11 +171,7 @@ class BaseDetailView(generic.DetailView):
         md_key = self.context_object_name + ':markdown:{}:{}'.format(obj.id, ud)
         cache_md = cache.get(md_key)
         if cache_md and settings.DEBUG is False:
-            if len(cache_md) ==  3:
-                obj.body, obj.toc, obj.has_mermaid = cache_md
-            else:
-                obj.body, obj.toc = cache_md
-                obj.has_mermaid = False
+            obj.body, obj.toc, obj.has_mermaid = cache_md
         else:
             md = make_markdown()
             processed_content, has_mermaid = preprocess_mermaid_blocks(obj.body)
