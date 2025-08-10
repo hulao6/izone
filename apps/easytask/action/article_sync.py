@@ -1,7 +1,7 @@
 import json
 import base64
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 import yaml
@@ -16,6 +16,17 @@ import yaml
 关键点：vitepress的action中设置好规则，只有config.ts变动才触发发布操作
 """
 
+def is_over_60_days_ago(date_str):
+    """
+    判断给定日期是否超过当前日期60天
+    @param date_str: 日期字符串，格式 YYYY-MM-DD
+    @return: True/False
+    """
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return (datetime.today().date() - target_date).days > 60
+    except ValueError:
+        return False
 
 class GitHubManager:
     def __init__(self, token, owner, repo, upload_msg=None, branch='main'):
@@ -263,6 +274,9 @@ class BlogManager:
             file_path = f'{self.prefix}/{item["subject"]}/{item["slug"]}.md'
 
         # ******************* 过滤器 *******************
+        # 判断文章的更新日期，如果是60天前，就不要上传，已经超过上传频率
+        if is_over_60_days_ago(item['update_date'][10]):
+            return
         # 全量更新则直接进入更新逻辑
         # 增量更新，要判断是否在白名单，当有白名单则强制更新白名单的，否则只添加新文件
         if not self.full:
@@ -270,6 +284,7 @@ class BlogManager:
                 if item['slug'] not in self.white_list:
                     return
             else:
+                # 这里的判断逻辑是属于增量同步，只新增文件
                 if file_path in self.target:
                     return
         # ******************* 过滤器 *******************
