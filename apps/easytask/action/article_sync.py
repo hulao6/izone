@@ -1,7 +1,7 @@
 import json
 import base64
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import requests
 import yaml
@@ -275,7 +275,7 @@ class BlogManager:
 
         # ******************* 过滤器 *******************
         # 判断文章的更新日期，如果是60天前，就不要上传，已经超过上传频率
-        if is_over_60_days_ago(item['update_date'][10]):
+        if is_over_60_days_ago(item['update_date'][:10]):
             return
         # 全量更新则直接进入更新逻辑
         # 增量更新，要判断是否在白名单，当有白名单则强制更新白名单的，否则只添加新文件
