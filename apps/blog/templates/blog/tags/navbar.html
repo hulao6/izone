@@ -25,6 +25,11 @@
                 <a class="nav-link py-md-3 {% if request.path == archive_url %}active{% endif %}"
                    href="{{ archive_url }}">归档</a>
             </li>
+            <li class="nav-item">
+                {% url 'blog:note_index' as note_index %}
+                <a class="nav-link py-md-3 {% if request.path == note_index %}active{% endif %}"
+                   href="{{ note_index }}">便签笔记</a>
+            </li>
             {% if tool_flag %}
                 <li class="nav-item">
                     {% url 'tool:total' as tool_url %}

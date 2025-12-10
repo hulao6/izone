@@ -5,7 +5,7 @@ from django.contrib.admin import widgets
 from .models import (Article, Tag, Category, Timeline,
                      Carousel, Silian, Keyword, FriendLink,
                      AboutBlog, Subject, Topic, ArticleView,
-                     PageView, FeedHub, MenuLink, SiteConfig, Fitness, Project)
+                     PageView, FeedHub, MenuLink, SiteConfig, Fitness, Project, Note)
 
 
 @admin.register(Subject)
@@ -251,3 +251,12 @@ class ProjectAdmin(admin.ModelAdmin):
 
     # 允许直接编辑的字段，对于布尔值的字段，这个非常有用
     list_editable = ('link', 'sort_order')
+
+
+@admin.register(Note)
+class NoteAdmin(admin.ModelAdmin):
+    date_hierarchy = 'create_date'
+    list_display = ('title', 'is_publish', 'create_date', 'update_date')
+    list_editable = ('is_publish',)
+    list_filter = ('is_publish', 'create_date')
+    search_fields = ('title', 'content')

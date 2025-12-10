@@ -6,7 +6,8 @@ from .views import (IndexView, DetailView, CategoryView, TagView, AboutView, Tag
                     SilianView, MySearchView, ArchiveView, TimelineView, DetailEditView,
                     update_article, FriendLinkView, friend_add, SubjectDetailView,
                     SubjectPageDetailView, SubjectListView, dashboard, feed_hub,
-                    vitepress_subject_view, health, ProjectListView)
+                    vitepress_subject_view, health, ProjectListView, NoteIndexView,
+                    notes_api)
 
 from .task_views import run_task, execute_task
 
@@ -30,6 +31,10 @@ urlpatterns = [
     path('health/', health, name='health'),  # 健康
     path('project/', ProjectListView.as_view(), name='project'),  # 项目
 
+    # 笔记
+    path('note/', NoteIndexView.as_view(), name='note_index'),
+    path('api/notes/', notes_api, name='notes_api'),
+
     # 专题列表页
     path('subject/', SubjectListView.as_view(), name='subject_index'),
     # 专题详情页
@@ -43,7 +48,6 @@ urlpatterns = [
     # celery task
     path('task/run/', run_task, name='task_run'),
     path('task/execute/', execute_task, name='task_execute'),
-
 ]
 
 if settings.DEBUG:

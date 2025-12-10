@@ -611,3 +611,27 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Note(models.Model):
+    """笔记模型，用于存储简短的笔记内容，在首页以卡片形式展示。"""
+    title = models.CharField('标题', max_length=200)
+    # 支持 markdown 或纯文本内容
+    content = models.TextField('内容')
+    # 使用英文逗号分隔的标签列表
+    tags = models.CharField('标签', max_length=200, blank=True, help_text='使用英文逗号分隔多个标签，如：Python,Django')
+    is_publish = models.BooleanField('是否发布', default=True)
+    create_date = models.DateTimeField('创建时间', auto_now_add=True)
+    update_date = models.DateTimeField('修改时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '笔记'
+        verbose_name_plural = verbose_name
+        ordering = ['-create_date']
+
+    def __str__(self):
+        return self.title
+
+    def get_tag_list(self):
+        """返回标签列表，去除空格并过滤空字符串"""
+        return [tag.strip() for tag in self.tags.split(',') if tag.strip()]

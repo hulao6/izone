@@ -1,0 +1,115 @@
+{% extends "blog/base.html" %}
+{% load static %}
+{% load blog_tags %}
+
+{% block head_title %}我的笔记{% endblock %}
+{% block metas %}
+    <meta name="description" content="我的笔记，记录一些工作中或个人用到的技巧">
+    <meta name="keywords" content="笔记,note,常用命令">
+{% endblock %}
+
+{% block top-file %}
+    <!-- Marked.js 解析 Markdown -->
+    <script src="{% static 'blog/js/marked.min.js' %}"></script>
+
+    <!-- Highlight.js 代码高亮 -->
+    <link rel="stylesheet" href="{% static 'blog/highlight/11.9.0/css/atom-one-dark.min.css' %}">
+    <script src="{% static 'blog/highlight/11.9.0/js/highlight.min.js' %}"></script>
+
+    <link rel="stylesheet" href="{% static 'blog/css/note.css' %}">
+{% endblock %}
+
+{% block base_content %}
+    <div class="app-container container">
+        <header class="header">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="搜索标题或标签…">
+            </div>
+        </header>
+
+        <div id="notes-grid" class="notes-grid"></div>
+    </div>
+
+    {# 通过 API 异步获取笔记数据 #}
+
+    <script>
+        async function fetchNotes() {
+            try {
+                const resp = await fetch('{% url "blog:notes_api" %}');
+                if (!resp.ok) throw new Error('Network response was not ok');
+                const notes = await resp.json();
+                render(notes);
+                initSearch(notes);
+            } catch (err) {
+                console.error('Failed to load notes:', err);
+                document.getElementById('notes-grid').innerHTML = '<p style="text-align:center;color:red;">加载笔记失败，请稍后重试。</p>';
+            }
+        }
+
+        const grid = document.getElementById('notes-grid');
+
+        function render(notesToShow) {
+            grid.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            notesToShow.forEach(note => {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                card.innerHTML = `
+                    <h2 class="note-title">${note.title}</h2>
+                    <div class="note-tags">
+                        ${note.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+                    </div>
+                    <div class="note-content">${marked.parse(note.content)}</div>
+                `;
+                card.querySelectorAll('pre code').forEach(block => {
+                    hljs.highlightElement(block);
+                    enhanceCodeBlock(block);
+                });
+                fragment.appendChild(card);
+            });
+            grid.appendChild(fragment);
+        }
+
+        function enhanceCodeBlock(codeEl) {
+            const pre = codeEl.parentNode;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-wrapper';
+            pre.parentNode.replaceChild(wrapper, pre);
+            const header = document.createElement('div');
+            header.className = 'code-header';
+            const langMatch = codeEl.className.match(/language-(\w+)/);
+            const lang = langMatch ? langMatch[1].toUpperCase() : '';
+            const langSpan = document.createElement('span');
+            langSpan.className = 'code-lang';
+            langSpan.textContent = lang;
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.textContent = '复制';
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(codeEl.innerText).then(() => {
+                    copyBtn.textContent = '已复制';
+                    setTimeout(() => copyBtn.textContent = '复制', 2000);
+                });
+            });
+            header.appendChild(langSpan);
+            header.appendChild(copyBtn);
+            wrapper.appendChild(header);
+            wrapper.appendChild(pre);
+        }
+
+        function initSearch(notes) {
+            document.getElementById('search-input').addEventListener('input', e => {
+                const q = e.target.value.trim().toLowerCase();
+                if (!q) return render(notes);
+                const filtered = notes.filter(note =>
+                    note.title.toLowerCase().includes(q) ||
+                    note.tags.some(tag => tag.toLowerCase().includes(q))
+                );
+                render(filtered);
+            });
+        }
+
+        // 页面加载完后获取数据
+        fetchNotes();
+    </script>
+{% endblock %}

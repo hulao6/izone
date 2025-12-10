@@ -1,7 +1,6 @@
 import re
 import time
 from datetime import datetime
-
 import markdown
 from django.conf import settings
 from django.core.cache import cache
@@ -16,8 +15,9 @@ from django.shortcuts import get_object_or_404, render, reverse, redirect
 from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views import generic
+from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_GET
 from django.db.models.functions import ExtractYear
 from haystack.generic_views import SearchView  # 导入搜索视图
 from haystack.query import SearchQuerySet
@@ -34,7 +34,8 @@ from .models import (
     FriendLink,
     Subject,
     Fitness,
-    Project
+    Project,
+    Note,
 )
 from .utils import (site_full_url,
                     CustomHtmlFormatter,
@@ -492,3 +493,22 @@ class ProjectListView(generic.ListView):
     context_object_name = 'projects'
     paginate_by = 100
     paginate_orphans = 0
+
+
+class NoteIndexView(TemplateView):
+    template_name = 'blog/noteIndex.html'
+
+# standalone api view
+@require_GET
+def notes_api(request):
+    """Return published notes as JSON list"""
+    notes_qs = Note.objects.filter(is_publish=True).order_by('-create_date')
+    notes_list = [
+        {
+            'title': n.title,
+            'content': n.content,
+            'tags': n.get_tag_list(),
+        }
+        for n in notes_qs
+    ]
+    return JsonResponse(notes_list, safe=False, json_dumps_params={'ensure_ascii': False})
