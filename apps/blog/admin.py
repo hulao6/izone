@@ -256,7 +256,7 @@ class ProjectAdmin(admin.ModelAdmin):
 @admin.register(Note)
 class NoteAdmin(admin.ModelAdmin):
     date_hierarchy = 'create_date'
-    list_display = ('title', 'is_publish', 'create_date', 'update_date')
-    list_editable = ('is_publish',)
+    list_display = ('title', 'is_publish', 'tags', 'create_date', 'update_date')
+    list_editable = ('is_publish', 'tags')
     list_filter = ('is_publish', 'create_date')
     search_fields = ('title', 'content')
