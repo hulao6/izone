@@ -495,6 +495,7 @@ class ProjectListView(generic.ListView):
     paginate_orphans = 0
 
 
+@method_decorator(add_views('blog:note_index', '便签笔记'), name='get')
 class NoteIndexView(TemplateView):
     template_name = 'blog/noteIndex.html'
 
