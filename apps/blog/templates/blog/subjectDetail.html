@@ -47,7 +47,7 @@
         /* 打印的时候忽略一些内容 */
         @media print {
             .print-none {
-                display: none;
+                display: none !important;
             }
             #article {
                 color: #1A1A17;
@@ -199,7 +199,7 @@
     </div>
 
     <!--跳转到评论按钮-->
-    <div class="text-center" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
+    <div class="text-center print-none" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
 {% endblock %}
 
 {% block end_file %}

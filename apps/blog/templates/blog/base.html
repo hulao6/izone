@@ -59,7 +59,7 @@
 {% endif %}
 
 <!--切换主题按钮-->
-<div class="text-center" id="change-theme" title="切换主题">
+<div class="text-center print-none" id="change-theme" title="切换主题">
     {% if not request.COOKIES.toggleTheme %}
         {% now_hour as hour %}
         {% if hour < 6 or hour > 18 %}
@@ -76,7 +76,7 @@
     {% endif %}
 </div>
 <!--回到顶部按钮-->
-<div class="text-center" id="to-top" title="回到顶部"><i class="fa fa-arrow-up"></i></div>
+<div class="text-center print-none" id="to-top" title="回到顶部"><i class="fa fa-arrow-up"></i></div>
 
 <!--主要内容块-->
 <main>{% block base_content %}{% endblock %}</main>
