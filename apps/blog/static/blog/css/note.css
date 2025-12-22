@@ -14,7 +14,7 @@ body {
 
 .app-container {
     /* 在大屏上扩大容器宽度，随视口自适应并设置上限 */
-    max-width: clamp(1200px, 80vw, 1920px);
+    max-width: clamp(1200px, 90vw, 1920px);
     margin: 0 auto;
     padding: 30px 20px;
 }
