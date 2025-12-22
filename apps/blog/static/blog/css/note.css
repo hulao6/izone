@@ -13,7 +13,8 @@ body {
 }
 
 .app-container {
-    max-width: 1600px;
+    /* 在大屏上扩大容器宽度，随视口自适应并设置上限 */
+    max-width: clamp(1200px, 80vw, 1600px);
     margin: 0 auto;
     padding: 30px 20px;
 }
@@ -46,8 +47,11 @@ body {
 /* ========= 核心：CSS Columns 实现完美瀑布流 ========= */
 .notes-grid {
     column-gap: 18px;           /* 列间距（原 32px，减到约 56%） */
-    column-width: 340px;        /* 每列最小宽度 —— 关键！（大屏正好 3 列） */
-    max-width: 1600px;
+    /* 固定最多 3 列，列宽随容器自适应 */
+    column-count: 3;
+    /* 跟随外层容器宽度扩展 */
+    max-width: inherit;
+    width: 100%;
     margin: 0 auto;
 }
 
@@ -153,5 +157,5 @@ body {
 }
 
 /* 响应式自动降列（无需 JS 控制） */
-@media (max-width: 1100px) { .notes-grid { column-width: 340px; } }   /* 2 列 */
-@media (max-width: 720px)  { .notes-grid { column-width: auto; column-count: 1; } } /* 手机单列 */
+@media (max-width: 1100px) { .notes-grid { column-count: 2; } }   /* 2 列 */
+@media (max-width: 720px)  { .notes-grid { column-count: 1; } }   /* 手机单列 */
