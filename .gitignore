@@ -110,5 +110,8 @@ upload/
 # templates test html
 templates/test*.html
 
+# IDE
+.vscode/
+
 # log
 log/*.log*

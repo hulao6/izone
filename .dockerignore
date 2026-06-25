@@ -138,3 +138,26 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Git
+.git/
+.gitattributes
+.gitignore
+.github/
+
+# IDE
+.idea/
+.vscode/
+
+# Search index
+whoosh_index/
+
+# Documentation
+docs/
+README.md
+LICENSE
+
+# Docker
+Dockerfile
+Dockerfile-slim
+.dockerignore
+

@@ -1,0 +1,39 @@
+{
+  "last_reviewed_commit": null,
+  "last_reviewed_commit_short": null,
+  "last_review_date": null,
+  "last_review_summary": null,
+  "documents_updated": [],
+  "documents": [
+    {
+      "path": "docs/design/01_PRD_产品需求规格说明书.md",
+      "type": "PRD",
+      "description": "产品需求规格，包含用户故事和验收标准",
+      "created_at": "2026-06-25"
+    },
+    {
+      "path": "docs/design/02_TDD_架构设计文档.md",
+      "type": "TDD",
+      "description": "架构设计，包含技术选型、模块划分和部署架构",
+      "created_at": "2026-06-25"
+    },
+    {
+      "path": "docs/design/03_ERD_数据库设计文档.md",
+      "type": "ERD",
+      "description": "数据库设计，包含实体定义和关系说明",
+      "created_at": "2026-06-25"
+    },
+    {
+      "path": "docs/design/04_API_接口文档.md",
+      "type": "API",
+      "description": "接口文档，包含各应用的 JSON API 端点",
+      "created_at": "2026-06-25"
+    },
+    {
+      "path": "README.md",
+      "type": "README",
+      "description": "项目 README，包含技术栈、文档索引和快速开始指南",
+      "created_at": "2026-06-25"
+    }
+  ]
+}
