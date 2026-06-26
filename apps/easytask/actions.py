@@ -10,7 +10,7 @@ import requests
 from django.db.models import Sum
 
 from blog.models import Article, ArticleView, PageView
-from blog.views import make_markdown
+from blog.views import make_markdown, preprocess_mermaid_blocks
 
 
 def get_link_status(url):
@@ -57,8 +57,9 @@ def action_update_article_cache():
         # 设置不存在的缓存
         if md_key not in keys:
             md = make_markdown()
+            processed_content, has_mermaid = preprocess_mermaid_blocks(obj.body)
             # 设置过期时间的时候分散时间，不要设置成同一时间
-            cache.set(md_key, (md.convert(obj.body), md.toc), 3600 * 24 + 10 * done_num)
+            cache.set(md_key, (md.convert(processed_content), md.toc, has_mermaid), 3600 * 24 * 7 + 10 * done_num)
             done_num += 1
     data = {'total': total_num, 'done': done_num}
     return data
@@ -238,21 +239,88 @@ def action_check_site_links(white_domain_list=None):
     return data
 
 
-def action_publish_article_by_task(article_ids):
+def is_current_date_greater_than(input_date_str):
+    """
+    判断当前日期是否比给定的字符串日期（支持格式为"YYYYMMDD"、"MMDD"、"DD"）大。
+
+    参数:
+    input_date_str (str): 表示目标日期的字符串，可以是"YYYYMMDD"、"MMDD"或"DD"格式。
+
+    返回:
+    bool: 如果当前日期晚于给定的字符串日期，返回 True；否则返回 False。
+    """
+    current_date = datetime.now()
+    current_year = current_date.year
+    current_month = current_date.month
+    current_day = current_date.day
+    current_hour = current_date.hour
+
+    # 根据输入日期的长度判断格式
+    if len(input_date_str) == 10:  # 格式为 YYYYMMDDHH
+        try:
+            input_date = datetime.strptime(input_date_str, "%Y%m%d%H")
+        except ValueError:
+            return False
+    elif len(input_date_str) == 8:  # 格式为 YYYYMMDD
+        try:
+            input_date = datetime.strptime(f'{input_date_str}{current_hour}', "%Y%m%d%H")
+        except ValueError:
+            return False
+    elif len(input_date_str) == 4:  # 格式为 MMDD
+        try:
+            input_date = datetime.strptime(f"{current_year}{input_date_str}{current_hour}",
+                                           "%Y%m%d%H")
+        except ValueError:
+            return False
+    elif len(input_date_str) == 2:  # 格式为 DD
+        try:
+            input_date = datetime.strptime(
+                f"{current_year}{current_month:02d}{input_date_str}{current_hour}",
+                "%Y%m%d%H")
+        except ValueError:
+            return False
+    else:
+        return False
+
+    # 创建当前日期的datetime对象
+    current_date_only = datetime(current_year, current_month, current_day, current_hour)
+
+    # 比较当前日期和输入日期
+    return current_date_only > input_date
+
+
+def action_publish_article_by_task(article_ids, filter_rule=None):
     """
     定时将草稿发布出去
     @param article_ids: 需要发布的文章ID
+    @param filter_rule: 发布规则，比如 {"140":"0910"} 表示 id为140的文章只有在09月10日之后才发布
     @return:
     """
     from blog.models import Article
+    filter_rule = filter_rule or {}
+    article_ids = article_ids or []
     data = {}
+    for x in filter_rule.keys():
+        if x not in article_ids:
+            article_ids.append(x)
     for each_id in article_ids:
-        article = Article.objects.get(id=int(each_id))
+        if isinstance(each_id, int) or each_id.isdigit():
+            article = Article.objects.get(id=int(each_id))
+        else:
+            article = Article.objects.get(slug=str(each_id))
         if article:
             if article.is_publish is False:
                 article.is_publish = True
-                article.save()
-                data[each_id] = 'Article published successfully'
+                if filter_rule.get(str(each_id)):  # 如果设置了规则，则按照规则发布，否则直接发布
+                    publish_flag = is_current_date_greater_than(filter_rule.get(str(each_id)))
+                    if publish_flag:
+                        article.save()
+                        data[each_id] = 'Article published successfully'
+                    else:
+                        data[each_id] = f'Article need publish after {filter_rule.get(str(each_id))}'
+                else:
+                    article.save()
+                    data[each_id] = 'Article published successfully'
             else:
                 data[each_id] = 'Article has been published'
         else:
@@ -470,6 +538,10 @@ def action_get_feed_data():
             feed_parser = feedparser.parse(feed.url, request_headers=headers)
             entries = [{'title': each['title'], 'link': each['link']} for each in
                        feed_parser['entries']]
+            # 如果没有内容就不要去更新之前的数据，避免把数据清空
+            if not entries:
+                result[feed.name] = 'nok'
+                continue
             data['entries'] = entries
             update_time = updated_time(feed_parser.feed)
             if update_time:

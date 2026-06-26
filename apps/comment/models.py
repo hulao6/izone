@@ -4,6 +4,7 @@ from blog.models import Article
 import re
 
 import markdown
+import bleach
 
 emoji_info = [
     [('aini_org', '爱你'), ('baibai_thumb', '拜拜'),
@@ -61,7 +62,11 @@ class Comment(models.Model):
                                verbose_name='评论人', on_delete=models.CASCADE)
     create_date = models.DateTimeField('创建时间', auto_now_add=True)
     content = models.TextField('评论内容')
-    parent = models.ForeignKey('self', verbose_name='父评论', related_name='%(class)s_child_comments',
+    # 记录处理后的user-agent
+    # 格式 PC / Mac OS X 10.15.7 / Chrome 128.0.0，可以使用 / 来拆分
+    user_agent = models.CharField(max_length=255, blank=True, null=True)
+    parent = models.ForeignKey('self', verbose_name='父评论',
+                               related_name='%(class)s_child_comments',
                                blank=True,
                                null=True, on_delete=models.CASCADE)
     rep_to = models.ForeignKey('self', verbose_name='回复', related_name='%(class)s_rep_comments',
@@ -76,12 +81,21 @@ class Comment(models.Model):
 
     def content_to_markdown(self):
         to_md = markdown.markdown(self.content,
-                                  safe_mode='escape',
                                   extensions=[
                                       'markdown.extensions.extra',
                                       'markdown.extensions.codehilite',
                                   ])
-        return get_emoji_imgs(to_md)
+        allowed_tags = bleach.sanitizer.ALLOWED_TAGS + ['p', 'pre', 'span', 'div']
+        allowed_attributes = {
+            'div': ['class'],
+            'pre': ['class'],
+            'code': ['class'],
+            'a': ['href', 'title'],
+            'img': ['src', 'alt'],
+            'span': ['class'],
+        }
+        sanitized_content = bleach.clean(to_md, tags=allowed_tags, attributes=allowed_attributes)
+        return get_emoji_imgs(sanitized_content)
 
 
 class ArticleComment(Comment):

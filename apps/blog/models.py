@@ -1,12 +1,16 @@
+import re
 import json
 from datetime import datetime
+
 from django.db import models
+from django.db.utils import IntegrityError
 from django.conf import settings
 from django.shortcuts import reverse
+from django.core.exceptions import ValidationError
+
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
 import markdown
-import re
 
 
 # Create your models here.
@@ -477,3 +481,157 @@ class MenuLink(models.Model):
         verbose_name = "菜单外链"
         verbose_name_plural = verbose_name
         ordering = ['sort_order']
+
+
+class SiteConfig(models.Model):
+    config_data = models.TextField(
+        "配置数据",
+        help_text="配置项作为全局上下文使用，上下文的具体定义见 apps/blog/context_processors.py 文件"
+    )
+
+    class Meta:
+        verbose_name = "网站配置"
+        verbose_name_plural = verbose_name
+
+    def clean(self):
+        # 检查config_data是否是合法的JSON格式
+        try:
+            json_data = json.loads(self.config_data)
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"无效的JSON格式: {e}")
+
+        # 校验必填键
+        required_keys = ["site_logo_name", "site_base_title",
+                         "site_end_title", "site_description", "site_keywords",
+                         "site_create_date"]
+        for key in required_keys:
+            if key not in json_data:
+                raise ValidationError(f"缺少配置项: {key}")
+
+        # 校验格式，除了指定的字段，其他都必须是字符串
+        key_type_dict = {
+            'site_show_register': bool
+        }
+        for key, value in json_data.items():
+            if key in key_type_dict:
+                if not isinstance(value, key_type_dict[key]):
+                    raise ValidationError(f"配置项{key}必须是{key_type_dict[key]}类型")
+            else:
+                if not isinstance(value, str):
+                    raise ValidationError(f"配置项{key}必须是字符串")
+
+        # 校验 site_create_date 是否符合 %Y-%m-%d 格式
+        try:
+            site_create_date = json_data.get('site_create_date')
+            datetime.strptime(site_create_date, '%Y-%m-%d')
+        except (ValueError, TypeError):
+            raise ValidationError("site_create_date 必须是 %Y-%m-%d 格式的日期")
+
+        # 校验 site_http_type 只能是 http 或 https
+        if json_data.get('site_http_type'):
+            if json_data.get('site_http_type').lower() not in ['http', 'https']:
+                raise ValidationError("site_http_type 必须是 http 或 https")
+
+    def save(self, *args, **kwargs):
+        # 确保只存在一个配置实例
+        if SiteConfig.objects.exists() and not self.pk:
+            raise IntegrityError("只能存在一个网站配置实例")
+        super().save(*args, **kwargs)
+
+
+class Fitness(models.Model):
+    location = models.CharField('位置', max_length=50, default='深圳')
+    run_date = models.DateTimeField('跑步时间', help_text='跑步开始时间')
+    # 详细信息
+    training_duration = models.CharField('训练时长', max_length=7, help_text='如：0:35:12')
+    distance = models.FloatField('距离(公里)', help_text='如：5.03')
+    active_kcal = models.IntegerField('动态千卡', help_text='如：301')
+    total_kcal = models.IntegerField('总千卡数', help_text='如：352')
+    total_elevation_gain = models.IntegerField('总爬升高度(米)', default=2, help_text='如：2')
+    average_power = models.IntegerField('平均功率(瓦)', help_text='如：117')
+    average_cadence = models.IntegerField('平均步频(步/分)', help_text='如：180')
+    average_pace = models.CharField('平均配速', max_length=7, help_text='如：8:23')
+    average_heart_rate = models.IntegerField('平均心率(次/分)', help_text='如：142')
+    average_stride_length = models.FloatField('平均步长(米)', default=0.7, help_text='如：0.7')
+    bottom_time = models.IntegerField('触底时间(毫秒)', help_text='如：267')
+    vertical_amplitude = models.FloatField('垂直振幅(厘米)', default=7.9, help_text='如：7.9')
+    # 5段数据，用逗号分割
+    five_pace = models.CharField('5段配速', max_length=50, help_text='如：8:23,8:23,8:23,8:23,8:23')
+    five_heart_rate = models.CharField('5段心率', max_length=50, help_text='如：142,145,150,156,160')
+    five_power = models.CharField('5段功率', max_length=50, help_text='如：117,117,114,113,112')
+    five_cadence = models.CharField('5段步频', max_length=50, help_text='如：180,180,178,178,178')
+    # 心率区间分布，用逗号分割
+    heart_rate = models.CharField('心率区间分布', max_length=50,
+                                  help_text='如：04:47,34:22,02:54,00:00,00:00')
+
+    def __str__(self):
+        return self.run_date.strftime('%Y-%m-%d %H:%M')
+
+    class Meta:
+        verbose_name = "健身"
+        verbose_name_plural = verbose_name
+        ordering = ['run_date']
+
+    def clean(self):
+        if len(self.training_duration.split(':')) != 3:
+            raise ValidationError("训练时长格式应该是 0:35:12 这种")
+        if len(self.average_pace.split(':')) != 2:
+            raise ValidationError("平均配速格式应该是 5:12 这种")
+        for value in [self.five_pace, self.five_heart_rate, self.five_power, self.five_cadence,
+                      self.heart_rate]:
+            if len(value.split(',')) != 5:
+                raise ValidationError(f"{value} 不满足5段数据格式")
+        for each in self.five_pace.split(','):
+            if each and len(each.split(':')) != 2:
+                raise ValidationError(f"{each} 不满足5段配速时间格式")
+        for each in self.heart_rate.split(','):
+            if each and len(each.split(':')) != 2:
+                raise ValidationError(f"{each} 不满足心率区间的时间格式")
+
+    def get_absolute_url(self):
+        return reverse('blog:health')
+
+class Project(models.Model):
+    name = models.CharField('项目名称', max_length=50)
+    description = models.CharField('描述', max_length=250)
+    link = models.URLField('跳转地址', help_text='请填写http或https开头的完整形式地址')
+    sort_order = models.IntegerField('排序', default=99)
+    create_date = models.DateTimeField(verbose_name='创建时间', auto_now_add=True)
+    update_date = models.DateTimeField(verbose_name='修改时间', auto_now=True)
+    cover_image = ProcessedImageField(upload_to='subject/upload/project/%Y/%m/%d/',
+                                      default='subject/default/default.png',
+                                      verbose_name='封面图',
+                                      processors=[ResizeToFill(250, 150)],
+                                      help_text='上传图片大小建议使用5:3的宽高比，为了清晰度原始图片宽度应该超过250px'
+                                      )
+    class Meta:
+        verbose_name = '项目'
+        verbose_name_plural = verbose_name
+        ordering = ['sort_order']
+
+    def __str__(self):
+        return self.name
+
+
+class Note(models.Model):
+    """笔记模型，用于存储简短的笔记内容，在首页以卡片形式展示。"""
+    title = models.CharField('标题', max_length=200)
+    # 支持 markdown 或纯文本内容
+    content = models.TextField('内容')
+    # 使用英文逗号分隔的标签列表
+    tags = models.CharField('标签', max_length=200, blank=True, help_text='使用英文逗号分隔多个标签，如：Python,Django')
+    is_publish = models.BooleanField('是否发布', default=True)
+    create_date = models.DateTimeField('创建时间', auto_now_add=True)
+    update_date = models.DateTimeField('修改时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '笔记'
+        verbose_name_plural = verbose_name
+        ordering = ['-create_date']
+
+    def __str__(self):
+        return self.title
+
+    def get_tag_list(self):
+        """返回标签列表，去除空格并过滤空字符串"""
+        return [tag.strip() for tag in self.tags.split(',') if tag.strip()]

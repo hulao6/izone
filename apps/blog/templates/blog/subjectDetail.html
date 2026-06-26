@@ -33,7 +33,7 @@
         <link href="{% static 'blog/simplemde/1.11.2/simplemde.min.css' %}" rel="stylesheet">
     {% endif %}
     <link href="{% static 'blog/css/detail.css' %}?v={{ static_version.css_blog_detail }}" rel="stylesheet">
-    <link href="{% static 'blog/css/monokai-2.css' %}?v=2" rel="stylesheet">
+    <link href="{% static 'blog/css/monokai-3.css' %}?v=20241203.1" rel="stylesheet">
     <link href="{% static 'comment/css/base_comment.css' %}?v=20190114.554" rel="stylesheet">
     <style>
         footer {
@@ -47,15 +47,23 @@
         /* 打印的时候忽略一些内容 */
         @media print {
             .print-none {
-                display: none;
+                display: none !important;
             }
             #article {
-                color: #1A1A17;
+                color: #1A1A17 !important;
+            }
+            .article-body table th {
+                color: #1A1A17 !important;
+            }
+            .article-body h2 {
+                border-left: none;
+                padding: 0;
             }
         }
         #article-print:hover {
             cursor: pointer;
         }
+        .mermaid {text-align: center;margin-top: 1.5rem;margin-bottom: 1.5rem;background: white;padding: 0.8rem;}
     </style>
 {% endblock %}
 
@@ -107,8 +115,7 @@
                         </li>
                         <li class="breadcrumb-item active d-none d-md-block" aria-current="page">
                             {% if user.is_superuser or user == article.author %}
-                                <a class="edit-blog" href="{% url 'blog:article_edit' article.slug %}"
-                                   target="_blank" title="编辑文章">
+                                <a class="edit-blog" href="{% url 'blog:article_edit' article.slug %}" title="编辑文章">
                                     {{ article.title|my_slice:":50" }}</a>
                             {% else %}
                                 {{ article.title|my_slice:":50" }}
@@ -199,7 +206,7 @@
     </div>
 
     <!--跳转到评论按钮-->
-    <div class="text-center" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
+    <div class="text-center print-none" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
 {% endblock %}
 
 {% block end_file %}
@@ -236,5 +243,9 @@
                 document.body.addEventListener('input', POWERMODE)
             }
         </script>
+    {% endif %}
+    {% if article.has_mermaid %}
+        <script src="{% static 'blog/js/mermaid/11.4.1/mermaid.min.js' %}"></script>
+        <script>mermaid.initialize({ startOnLoad: true });</script>
     {% endif %}
 {% endblock %}

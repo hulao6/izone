@@ -1,0 +1,161 @@
+/* style.css —— 真正完美的三列瀑布流（2025 最稳方案） */
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f9f9fc;
+    color: #1d1d1f;
+    min-height: 100vh;
+}
+
+@media (prefers-color-scheme: dark) {
+    body { background:#000; color:#f5f5f7; }
+}
+
+.app-container {
+    /* 在大屏上扩大容器宽度，随视口自适应并设置上限 */
+    max-width: clamp(1200px, 90vw, 1920px);
+    margin: 0 auto;
+    padding: 30px 20px;
+}
+
+/* 标题与搜索框 */
+.header h1 {
+    text-align: center;
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+.search-box {
+    max-width: 600px;
+    margin: 0 auto 40px;
+}
+#search-input {
+    width: 100%;
+    padding: 18px 24px;
+    font-size: 18px;
+    border: none;
+    border-radius: 24px;
+    background: white;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    outline: none;
+}
+@media (prefers-color-scheme: dark) {
+    #search-input { background:#1c1c1e; box-shadow:0 10px 40px rgba(0,0,0,0.7); }
+}
+
+/* ========= 核心：CSS Columns 实现完美瀑布流 ========= */
+.notes-grid {
+    column-gap: 18px;           /* 列间距（原 32px，减到约 56%） */
+    /* 固定最多 3 列，列宽随容器自适应 */
+    column-count: 3;
+    /* 跟随外层容器宽度扩展 */
+    max-width: inherit;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.note-card {
+    break-inside: avoid;       /* 防止卡片被截断 */
+    margin-bottom: 18px;       /* 垂直间距（与列间距一致） */
+    background: white;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    display: inline-block;
+    width: 100%;
+    vertical-align: top;       /* 顶部对齐，防止小卡片下沉 */
+}
+
+.note-card:hover {
+    transform: translateY(-12px);
+    box-shadow: 0 32px 70px rgba(0,0,0,0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+    .note-card {
+        background: #1c1c1e;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+    }
+    .note-card:hover { box-shadow: 0 32px 70px rgba(0,0,0,1); }
+}
+
+/* 卡片内部 */
+.note-title {
+    font-size: 20px;
+    font-weight: 600;
+    padding: 28px 28px 12px;
+    margin: 0;
+}
+.note-tags {
+    padding: 0 28px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.tag {
+    background: #e8e8ee;
+    color: #333;
+    font-size: 13.5px;
+    padding: 7px 15px;
+    border-radius: 18px;
+    font-weight: 500;
+}
+.note-content {
+    padding: 0 18px 24px;
+    font-size: 16px;
+    color: #333;
+}
+@media (prefers-color-scheme: dark) {
+    .tag { background:#38383a; color:#ddd; }
+    .note-title, .note-content { color:#f5f5f7; }
+    .note-content { color:#ddd; }
+}
+
+/* 代码块美化 */
+.code-wrapper {
+    margin: 20px 0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #282c34;
+    position: relative;
+}
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 10px;
+}
+.code-lang { opacity: 0.8; }
+.copy-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.6);
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.2); }
+.copy-btn:active { background: rgba(255,255,255,0.35); }
+.note-content pre {
+    margin: 0 !important;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.hljs {
+    border-radius: 10px !important;
+    padding: 12px !important;
+    font-size: 14.5px !important;
+}
+.note-card dl, ol, ul {
+    margin-left: 1rem;
+}
+
+/* 响应式自动降列（无需 JS 控制） */
+@media (max-width: 1100px) { .notes-grid { column-count: 2; } }   /* 2 列 */
+@media (max-width: 720px)  { .notes-grid { column-count: 1; } }   /* 手机单列 */

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import os
 import time
+import subprocess
+import tempfile
 
 from celery import shared_task
 from django.core.management import call_command
@@ -7,7 +10,7 @@ from django.core.management import call_command
 from .utils import TaskResponse
 from .actions import (
     action_update_article_cache,
-    action_check_friend_links,
+    # action_check_friend_links,
     action_clear_notification,
     action_cleanup_task_result,
     action_baidu_push,
@@ -21,6 +24,12 @@ from monitor.actions import (
 )
 
 from blog.templatetags.blog_tags import get_blog_infos
+from .models import TaskScript, EnvironmentVariable
+
+from .action.oss_sync import action_qiniu_sync_github
+from .action.article_sync import action_article_to_github
+from .action.friend_links import action_check_friend_links
+from .action.clear_redis_keys import action_clear_cache_with_prefix
 
 
 @shared_task
@@ -112,14 +121,15 @@ def check_navigation_site(white_domain_list=None):
 
 
 @shared_task
-def publish_article_by_task(article_ids):
+def publish_article_by_task(article_ids, filter_rule=None):
     """
     定时将草稿发布出去
     @param article_ids: 需要发布的文章ID
+    @param filter_rule: 发布规则，比如 {140:"0910"} 表示 id为140的文章只有在09月10日之后才发布
     @return:
     """
     response = TaskResponse()
-    result = action_publish_article_by_task(article_ids)
+    result = action_publish_article_by_task(article_ids, filter_rule=filter_rule)
     response.data = result
     return response.as_dict()
 
@@ -174,4 +184,119 @@ def check_host_status(recipient_list=None, times=None, ignore_hours=None):
     msg = action_check_host_status(recipient_list=recipient_list, times=times,
                                    ignore_hours=ignore_hours)
     response.data = {'msg': msg}
+    return response.as_dict()
+
+
+# name: 指定任务的名称。
+# max_retries: 设置任务的最大重试次数
+# default_retry_delay: 设置任务重试的默认延迟时间（单位为秒）
+# retry_kwargs: 允许为重试指定额外的关键字参数
+@shared_task(max_retries=2, default_retry_delay=10)
+def qiniu_sync_github(access_key, secret_key, bucket_name, private_domain,
+                      token, owner, repo, max_num=10, msg=None):
+    """
+    七牛云空间同步到GitHub，空间到项目
+    @param access_key: 七牛密钥
+    @param secret_key: 七牛密钥
+    @param bucket_name: 七牛空间名，如blog-img
+    @param private_domain: 七牛空间私有域名，如pic.tendcode.com
+    @param token: GitHub token
+    @param owner: GitHub 用户名，如Hopetree
+    @param repo: GitHub 项目名，如img
+    @param max_num: 每次同步的数量，如果要一次同步所以则设置大一点就行
+    @param msg: GitHub 上传文件时候的 commit 信息，不填则按照默认信息
+    @return:
+    """
+    response = TaskResponse()
+    result = action_qiniu_sync_github(
+        access_key, secret_key, bucket_name, private_domain,
+        token, owner, repo, max_num, msg
+    )
+    response.data = result
+    return response.as_dict()
+
+
+@shared_task(max_retries=2, default_retry_delay=30)
+def article_to_github(base_url, base64_string, token, owner, repo,
+                      source_media_url, target_media_url,
+                      msg='Sync from blog task',
+                      full=False, white_list=None, prefix='blog'):
+    """
+    同步文章到GitHub
+    @param base_url: 博客接口地址，如https://tendcode.com
+    @param base64_string: 管理员用户密码base64值
+    @param token: GitHub token
+    @param owner: GitHub 用户名，如Hopetree
+    @param repo: GitHub 项目名，如img
+    @param source_media_url: 媒体文件源地址前缀，如https://tendcode.com/cdn/
+    @param target_media_url: 媒体文件替换后地址前缀，如https://cdn.jsdelivr.net/gh/Hopetree/blog-img@main/
+    @param msg: GitHub 提交信息，如Upload file via API
+    @param full: 是否全量同步，布尔值，默认False
+    @param white_list: 白名单，list，文章的slug
+    @param prefix: GitHub中文章保存路径，如blog
+    @return:
+    """
+    response = TaskResponse()
+    result = action_article_to_github(
+        base_url, base64_string, token, owner, repo,
+        source_media_url, target_media_url,
+        msg, full, white_list, prefix
+    )
+    response.data = result
+    return response.as_dict()
+
+
+@shared_task
+def clear_cache_with_prefix(pattern_keys):
+    """
+    清理指定匹配规则的redis keys
+    @param pattern_keys: health.*
+    @return:
+    """
+    response = TaskResponse()
+    result = action_clear_cache_with_prefix(pattern_keys)
+    response.data = result
+    return response.as_dict()
+
+@shared_task
+def execute_task(script_name, python_path="/usr/local/bin/python3", shell_path="/usr/bin/bash", **kwargs):
+    """执行数据库中的 Python/Shell 代码，并注入环境变量"""
+    response = TaskResponse()
+    try:
+        script_obj = TaskScript.objects.get(name=script_name)
+        script_code = script_obj.script
+        script_type = script_obj.script_type
+
+        # 获取所有环境变量
+        env_vars = {env.key: env.value for env in EnvironmentVariable.objects.all()}
+
+        # 更新参数中的变量
+        env_vars.update({
+            str(k): str(v) for k, v in kwargs.items() if
+            isinstance(k, str) and isinstance(v, (str, int, float))
+        })
+
+        # 确定文件后缀
+        file_suffix = ".py" if script_type == "python" else ".sh"
+
+        with tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False) as temp_script:
+            temp_script.write(script_code.encode("utf-8"))
+            temp_script_path = temp_script.name  # 获取文件路径
+
+        # 设置环境变量
+        # process_env = os.environ.copy()
+        process_env = {}
+        process_env.update(env_vars)
+
+        # 执行脚本
+        if script_type == "python":
+            result = subprocess.run([python_path, temp_script_path], capture_output=True, text=True, env=process_env)
+        else:
+            result = subprocess.run([shell_path, temp_script_path], capture_output=True, text=True, env=process_env)
+
+        response.data = {"script_name":script_name, "temp_script_path":temp_script_path, "stdout": result.stdout, "stderr": result.stderr}
+
+    except TaskScript.DoesNotExist:
+        response.data = {"script_name":script_name, "error": "Script not found"}
+
     return response.as_dict()

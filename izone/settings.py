@@ -82,7 +82,7 @@ INSTALLED_APPS = [
     'rsshub',  # RSSHub，自定义第三方rss订阅
     'monitor',  # 服务监控
     'portinfo',  # 端口信息
-
+    'flow',  # 流程图服务
 ]
 
 # 自定义用户model
@@ -185,6 +185,8 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = False  # 关闭国际时间，不然数据库报错
+
+LOCALE_PATHS = [os.path.join(BASE_DIR, 'locale')]
 
 # 统一分页设置
 BASE_PAGE_BY = 10
@@ -342,6 +344,9 @@ LA51_PROTOCOL = os.getenv('IZONE_LA51_PROTOCOL', '')
 MY_SITE_VERIFICATION = os.getenv('IZONE_SITE_VERIFICATION', '')
 # 使用 http 还是 https （sitemap 中的链接可以体现出来）
 PROTOCOL_HTTPS = os.getenv('IZONE_PROTOCOL_HTTPS', 'HTTP').lower()
+# 文章页面的打赏二维码，必须微信和支付宝都存在才会显示打赏
+REWARD_WX = os.getenv('IZONE_REWARD_WX', '')
+REWARD_ZFB = os.getenv('IZONE_REWARD_ZFB', '')
 # 个人外链信息（导航栏下拉中显示），已经作废，导航外链从后台添加
 # PRIVATE_LINKS = os.getenv('IZONE_PRIVATE_LINKS', '[]')
 # ***************************************** 个性化配置结束 ****************************************

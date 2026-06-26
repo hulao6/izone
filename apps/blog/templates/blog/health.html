@@ -1,0 +1,936 @@
+{% extends 'blog/base.html' %}
+{% load static blog_tags %}
+{% load health %}
+
+{% block head_title %}运动看板，慢跑数据{% endblock %}
+
+{% block metas %}
+    <meta name="description"
+          content="本网站是一个采用django+bootstrap4搭建的个人博客，本着学习和分享的精神，博客项目开源，源代码可以到我的Github中查看，网站建站历程可以查看页面Timeline内容。">
+    <meta name="keywords" content="dashboard,运动看板,慢跑,五公里跑,十公里跑,心率,步频">
+{% endblock %}
+
+{% block top-file %}
+    <script src="{% static 'blog/js/echarts/5.4.3/echarts.min.js' %}"></script>
+    <!--设置默认的主题颜色为亮色-->
+    <script>
+        var baseEchartsColor = {
+            backgroundColor: '#fff',
+            titleColor: '#464646',
+            borderColor: '#555555',
+            borderColor1: '#cccccc'
+        }
+        var nightEchartsColor = {
+            backgroundColor: '#1a222c',
+            titleColor: '#d5d3d3',
+            borderColor: '#9a9393',
+            borderColor1: '#4f525a'
+        }
+        var echartsTheme = baseEchartsColor
+    </script>
+    <!--根据cookies判断是否启用暗色主题-->
+    {% if not request.COOKIES.toggleTheme %}
+        {% now_hour as hour %}
+        {% if hour < 6 or hour > 18 %}
+            <script>
+                var echartsTheme = nightEchartsColor
+            </script>
+        {% endif %}
+    {% else %}
+        {% if request.COOKIES.toggleTheme == "dark" %}
+            <script>
+                var echartsTheme = nightEchartsColor
+            </script>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block base_content %}
+    <div class="container">
+        <div class="row justify-content-center mb-2">
+            {% for y in year_list %}
+                <div class="mx-2 {% if current_year == y %}text-primary font-weight-bold{% endif %}"><a href="?year={{ y }}">{{ y }}</a></div>
+            {% endfor %}
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="year_data_box" style="width: 100%;height:320px;"></div>
+            {% get_year_data current_year as year_data %}
+            <div id="year_data_data"
+                 style="display: none;">{{ year_data|json_script:"year_data" }}</div>
+            <script type="text/javascript">
+                const myRunYearData = JSON.parse(document.getElementById("year_data").textContent);
+                const myRunYearChart = echarts.init(document.getElementById('year_data_box'));
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    title: {
+                        text: myRunYearData.year + '年跑量日历图',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    toolbox: {
+                        feature: {
+                            dataView: {show: true, readOnly: false},
+                            restore: {show: true},
+                            saveAsImage: {show: true}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function (params) {
+                            // params.name 是日期，params.value[1] 是对应的值
+                            // console.log(params)
+                            const date = params.value[0];
+                            const value = params.value[1];
+                            const location = myRunYearData.rawData.find(item => item.date === date)?.location || '';
+                            return date + ' ' + location + '<br/>' + params.marker + '<span style="float:right;font-weight: bold;">' + value + ' 米' + '</span><br/>';
+                        }
+                    },
+                    visualMap: {
+                        color: [
+                            '#de6e6a',
+                            '#9a60b4',
+                            '#ea7ccc',
+                            '#5a6fc0',
+                            '#85bedb',
+                            '#9eca7f',
+                        ],
+                        textStyle: {color: echartsTheme.titleColor},
+                        pieces: [
+                            {min: 10000, label: '10000+'},
+                            {min: 8000, max: 9999, label: '8000-9999'},
+                            {min: 7000, max: 7999, label: '7000-7999'},
+                            {min: 6000, max: 6999, label: '6000-6999'},
+                            {min: 5000, max: 5999, label: '5000-5999'},
+                            {min: 3000, max: 4999, label: '3000-4999'}
+                        ],
+                        type: 'piecewise',
+                        orient: 'horizontal',
+                        left: 'center',
+                        top: 20
+                    },
+                    calendar: {
+                        top: 100,
+                        left: 40,
+                        right: 40,
+                        cellSize: ['auto', 20],
+                        range: myRunYearData.year,
+                        splitLine: {
+                            lineStyle: {
+                                color: echartsTheme.borderColor,
+                                width: 1
+                            }
+                        },
+                        itemStyle: {
+                            color: echartsTheme.backgroundColor,
+                            borderColor: echartsTheme.borderColor1,
+                            borderWidth: 1
+                        },
+                        monthLabel: {
+                            show: true,
+                            color: echartsTheme.titleColor,
+                            nameMap: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+                        },
+                        dayLabel: {
+                            color: echartsTheme.titleColor,
+                            nameMap: ['日', '一', '二', '三', '四', '五', '六']
+                        },
+                        yearLabel: {show: false}
+                    },
+                    series: {
+                        type: 'heatmap',
+                        coordinateSystem: 'calendar',
+                        data: myRunYearData.rawData.map(item => [item.date, item.value])
+                    }
+                };
+                myRunYearChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="total_data_box" style="width: 100%;height:340px;"></div>
+            {% get_total_data_trend 20 current_year as total_data_trend %}
+            <div id="total_data" style="display: none;">{{ total_data_trend|json_script:"total_data_trend" }}</div>
+            <script type="text/javascript">
+                const myTotalData = JSON.parse(document.getElementById("total_data").textContent);
+                const myTotalChart = echarts.init(document.getElementById('total_data_box'));
+                // 指定图表的配置项和数据
+                // 将浮点数转换为分秒格式
+                function floatToMinutesSeconds(value) {
+                    const minutes = Math.floor(value);  // 整数部分为分钟
+                    const seconds = Math.round((value - minutes) * 60);  // 小数部分转为秒并四舍五入
+                    return minutes + "'" + (seconds < 10 ? '0' : '') + seconds + "''";  // 格式化输出
+                }
+
+                const colors = [
+                    '#5470c6',
+                    '#91cc75',
+                    '#de6e6a',
+                    '#9a60b4',
+                    '#3ba272',
+                    '#ea7ccc',
+                    '#fac858'
+                ];
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    color: colors,
+                    title: {
+                        text: '整体数据趋势图',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'none'
+                        },
+                        formatter: function (params) {
+                            let result = params[0].axisValue + '<br/>';
+                            params.forEach(function (item, index) {
+                                result += item.marker + item.seriesName +
+                                    '<span style="float:right;margin-left: 1rem;font-weight: bold;">';
+
+                                // 当 index 等于 3（第四个项）时，调用 floatToMinutesSeconds 函数处理值
+                                if (index === 3) {
+                                    result += floatToMinutesSeconds(item.value);
+                                } else {
+                                    result += item.value;
+                                }
+
+                                result += '</span><br/>';
+                            });
+                            return result;
+                        }
+                    },
+                    toolbox: {
+                        feature: {
+                            dataView: {show: true, readOnly: false},
+                            restore: {show: true},
+                            saveAsImage: {show: true}
+                        }
+                    },
+                    legend: {
+                        data: ['步频', '心率', '配速', '总千卡', '功率', '步长'],
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    xAxis: [
+                        {
+                            type: 'category',
+                            axisTick: {
+                                alignWithLabel: true
+                            },
+                            // prettier-ignore
+                            data: myTotalData.dateData,
+                        }
+                    ],
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: '距离',
+                            position: 'left',
+                            alignTicks: true,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[0]
+                                }
+                            },
+                            min: 2,
+                            axisLabel: {
+                                formatter: '{value} km'
+                            }
+                        },
+                        {
+                            type: 'value',
+                            name: '步频',
+                            min: 150,
+                            position: 'right',
+                            alignTicks: true,
+                            offset: 60,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[1]
+                                }
+                            },
+                            axisLabel: {
+                                formatter: '{value} 步'
+                            }
+                        },
+                        {
+                            type: 'value',
+                            name: '心率',
+                            min: 130,
+                            position: 'right',
+                            inverse: true,
+                            nameLocation: 'start',
+                            alignTicks: true,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[2]
+                                }
+                            },
+                            axisLabel: {
+                                formatter: '{value} 次'
+                            }
+                        },
+                        {
+                            type: 'value',
+                            name: '配速',
+                            inverse: true,
+                            min: 5,
+                            position: 'left',
+                            nameLocation: 'start',
+                            offset: 60,
+                            alignTicks: true,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[3]
+                                }
+                            },
+                            axisLabel: {
+                                formatter: function (value) {
+                                    return floatToMinutesSeconds(value); // 将 Y 轴标签格式化为分秒
+                                }
+                            }
+                        },
+                        {
+                            type: 'value',
+                            name: '总千卡',
+                            position: 'left',
+                            show: false,
+                            alignTicks: true,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[4]
+                                }
+                            }
+                        },
+                        {
+                            type: 'value',
+                            name: '功率',
+                            min: 100,
+                            position: 'left',
+                            show: false,
+                            alignTicks: true,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[5]
+                                }
+                            }
+                        },
+                        {
+                            type: 'value',
+                            name: '步长',
+                            min: 0.5,
+                            position: 'left',
+                            show: false,
+                            alignTicks: true,
+                            axisLine: {
+                                show: true,
+                                lineStyle: {
+                                    color: colors[6]
+                                }
+                            }
+                        }
+                    ],
+                    series: [
+                        {
+                            name: '距离',
+                            label: {
+                                show: true,  // 显示标签
+                                position: 'top',
+                            },
+                            type: 'bar',
+                            barWidth: '72%',
+                            data: myTotalData.distanceData
+                        },
+                        {
+                            name: '步频',
+                            type: 'line',
+                            yAxisIndex: 1,
+                            data: myTotalData.cadenceData
+                        },
+                        {
+                            name: '心率',
+                            type: 'line',
+                            yAxisIndex: 2,
+                            data: myTotalData.heartData
+                        },
+                        {
+                            name: '配速',
+                            type: 'line',
+                            yAxisIndex: 3,
+                            data: myTotalData.paceData
+                        },
+                        {
+                            name: '总千卡',
+                            type: 'line',
+                            yAxisIndex: 4,
+                            data: myTotalData.kcalData
+                        },
+                        {
+                            name: '功率',
+                            type: 'line',
+                            yAxisIndex: 5,
+                            data: myTotalData.powerData
+                        },
+                        {
+                            name: '步长',
+                            type: 'line',
+                            yAxisIndex: 6,
+                            data: myTotalData.strideLengthData
+                        }
+                    ]
+                };
+
+
+                // 使用刚指定的配置项和数据显示图表。
+                myTotalChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="heart_interval_box" style="width: 100%;height:340px;"></div>
+            {% get_heart_rate_interval_v2 20 current_year as heart_interval_data %}
+            <div id="heart_interval_data"
+                 style="display: none;">{{ heart_interval_data|json_script:"heart_interval_data" }}</div>
+            <script type="text/javascript">
+                // 基于准备好的dom，初始化echarts实例
+                const myHeartIntervalData = JSON.parse(document.getElementById("heart_interval_data").textContent);
+                const myHeartIntervalChart = echarts.init(document.getElementById('heart_interval_box'));
+
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    color: [
+                        '#5470c6',
+                        '#91cc75',
+                        '#73c0de',
+                        '#fac858',
+                        '#ee6666',
+                        '#3ba272',
+                        '#fac858',
+                        '#ee6666',
+                        '#9a60b4',
+                        '#ea7ccc'
+                    ],
+                    toolbox: {
+                        feature: {
+                            dataView: {show: true, readOnly: false},
+                            restore: {show: true},
+                            saveAsImage: {show: true}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'  // 鼠标悬停时显示阴影
+                        },
+                        formatter: function (params) {
+                            let result = params[0].axisValue + '<br/>';
+                            params.forEach(function (item) {
+                                // 使用 span 并添加样式来实现右对齐
+                                result +=
+                                    item.marker + item.seriesName +
+                                    '<span style="float:right;margin-left: 1rem;font-weight: bold;">' + item.value[item.seriesIndex + 1] + '%' + '</span><br/>';
+                            });
+                            return result;
+                        }
+                    },
+                    title: {
+                        text: '心率区间分布',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '<134次/分', '135-147次/分', '148-159次/分', '160-171次/分', '172+次/分']].concat(myHeartIntervalData.rawData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value', axisLabel: {formatter: '{value}%'}},
+                    series: [
+                        {
+                            type: 'bar',
+                            barWidth: '72%',
+                            label: {
+                                show: true,  // 显示标签
+                                fontSize: 11,
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[1] === 0 ? '' : params.data[1] + '%';
+                                },
+                            },
+                            stack: '单次',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            barWidth: '72%',
+                            label: {
+                                show: true,  // 显示标签
+                                fontSize: 11,
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[2] === 0 ? '' : params.data[2] + '%';
+                                },
+                            },
+                            stack: '单次',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            barWidth: '72%',
+                            label: {
+                                show: true,  // 显示标签
+                                fontSize: 11,
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[3] === 0 ? '' : params.data[3] + '%';
+                                },
+                            },
+                            stack: '单次',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            barWidth: '72%',
+                            label: {
+                                show: true,  // 显示标签
+                                fontSize: 11,
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[4] === 0 ? '' : params.data[4] + '%';
+                                },
+                            },
+                            stack: '单次',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            barWidth: '72%',
+                            label: {
+                                show: true,  // 显示标签
+                                fontSize: 11,
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[5] === 0 ? '' : params.data[5] + '%';
+                                },
+                            },
+                            stack: '单次',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myHeartIntervalChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="heart_box" style="width: 100%;height:340px;"></div>
+            {% get_heart_rate_trend 20 current_year as heart_rate_trend %}
+            <div id="heart_data" style="display: none;">{{ heart_rate_trend|json_script:"heart_rate_trend" }}</div>
+            <script type="text/javascript">
+                const myHeartData = JSON.parse(document.getElementById("heart_data").textContent);
+                const myHeartChart = echarts.init(document.getElementById('heart_box'));
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    {#color: ['#3ba272', '#9a60b4', '#f38b53', '#fac858'],#}
+                    toolbox: {
+                        feature: {
+                            dataView: {show: true, readOnly: false},
+                            restore: {show: true},
+                            saveAsImage: {show: true}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    title: {
+                        text: '五公里心率趋势图(次/分钟)',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        data: ['第1公里', '第2公里', '第3公里', '第4公里', '第5公里', '平均心率'],
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '第1公里', '第2公里', '第3公里', '第4公里', '第5公里', '平均心率']].concat(myHeartData.rawData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value', min: 120, inverse: true,},
+                    series: [
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myHeartChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="pace_trend_box" style="width: 100%;height:340px;"></div>
+            {% get_pace_trend 20 current_year as pace_trend %}
+            <div id="pace_trend_data" style="display: none;">{{ pace_trend|json_script:"pace_trend" }}</div>
+            <script type="text/javascript">
+                // 将浮点数转换为分秒格式
+                function floatToMinutesSeconds(value) {
+                    if (value === "") {
+                        return "-"
+                    }
+                    const minutes = Math.floor(value);  // 整数部分为分钟
+                    const seconds = Math.round((value - minutes) * 60);  // 小数部分转为秒并四舍五入
+                    return minutes + "'" + (seconds < 10 ? '0' : '') + seconds + "''";  // 格式化输出
+                }
+
+                const myPaceData = JSON.parse(document.getElementById("pace_trend_data").textContent);
+                const myPaceChart = echarts.init(document.getElementById('pace_trend_box'));
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    {#color: ['#3ba272', '#9a60b4', '#f38b53', '#fac858'],#}
+                    toolbox: {
+                        feature: {
+                            dataView: {show: true, readOnly: false},
+                            restore: {show: true},
+                            saveAsImage: {show: true}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'  // 鼠标悬停时显示阴影
+                        },
+                        formatter: function (params) {
+                            let result = params[0].axisValue + '<br/>';
+                            params.forEach(function (item) {
+                                // 使用 span 并添加样式来实现右对齐
+                                result +=
+                                    item.marker + item.seriesName +
+                                    '<span style="float:right;margin-left: 1rem;font-weight: bold;">' + floatToMinutesSeconds(item.value[item.seriesIndex + 1]) + '</span><br/>';
+                            });
+                            return result;
+                        }
+                    },
+                    title: {
+                        text: '五公里配速趋势图(分钟/公里)',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        data: ['第1公里', '第2公里', '第3公里', '第4公里', '第5公里', '平均配速'],
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '第1公里', '第2公里', '第3公里', '第4公里', '第5公里', '平均配速']].concat(myPaceData.rawData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {
+                        type: 'value',
+                        inverse: true,
+                        min: 5,
+                        axisLabel: {
+                            formatter: function (value) {
+                                return floatToMinutesSeconds(value); // 将 Y 轴标签格式化为分秒
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                },
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[1] === 0 ? '' : floatToMinutesSeconds(params.data[1]);
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                },
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[2] === 0 ? '' : floatToMinutesSeconds(params.data[2]);
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                },
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[3] === 0 ? '' : floatToMinutesSeconds(params.data[3]);
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                },
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[4] === 0 ? '' : floatToMinutesSeconds(params.data[4]);
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                },
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[5] === 0 ? '' : floatToMinutesSeconds(params.data[5]);
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                },
+                                formatter: function (params) {
+                                    // 判断是否为0，如果是0则不显示标签
+                                    return params.data[6] === 0 ? '' : floatToMinutesSeconds(params.data[6]);
+                                }
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myPaceChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="cadence_trend_box" style="width: 100%;height:340px;"></div>
+            {% get_cadence_trend 20 current_year as cadence_trend %}
+            <div id="cadence_trend_data" style="display: none;">{{ cadence_trend|json_script:"cadence_trend" }}</div>
+            <script type="text/javascript">
+                const myCadenceData = JSON.parse(document.getElementById("cadence_trend_data").textContent);
+                const myCadenceChart = echarts.init(document.getElementById('cadence_trend_box'));
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    {#color: ['#3ba272', '#9a60b4', '#f38b53', '#fac858'],#}
+                    toolbox: {
+                        feature: {
+                            dataView: {show: true, readOnly: false},
+                            restore: {show: true},
+                            saveAsImage: {show: true}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    title: {
+                        text: '五公里步频趋势图(步/分钟)',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        data: ['第1公里', '第2公里', '第3公里', '第4公里', '第5公里', '平均步频'],
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '第1公里', '第2公里', '第3公里', '第4公里', '第5公里', '平均步频']].concat(myCadenceData.rawData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value', min: 150},
+                    series: [
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            lineStyle: {type: 'dashed'},
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myCadenceChart.setOption(option);
+            </script>
+        </div>
+    </div>
+{% endblock %}

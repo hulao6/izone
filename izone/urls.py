@@ -27,8 +27,6 @@ from blog.views import robots
 # 网站地图
 sitemaps = {
     'articles': ArticleSitemap,
-    'tags': TagSitemap,
-    'categories': CategorySitemap
 }
 
 urlpatterns = [
@@ -49,12 +47,13 @@ urlpatterns = [
                   path('rss/', include(('rsshub.urls', 'rsshub'), namespace='rsshub')),
                   path('monitor/', include(('monitor.urls', 'monitor'), namespace='monitor')),
                   path('port/', include(('portinfo.urls', 'portinfo'), namespace='portinfo')),
+                  path('flow/', include(('flow.urls', 'flow'), namespace='flow')),
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # 加入这个才能显示media文件
 
 if settings.API_FLAG:
     from api.urls import router
 
-    urlpatterns.append(path('api/v1/', include((router.urls, router.root_view_name),
+    urlpatterns.append(path('openapi/v1/', include((router.urls, router.root_view_name),
                                                namespace='api')))  # restframework
 
 if settings.TOOL_FLAG:

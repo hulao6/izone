@@ -1,0 +1,183 @@
+{% extends "tool/base_tool.html" %}
+{% load static %}
+
+{% block head_title %}时间戳转换工具{% endblock %}
+{% block metas %}
+    <meta name="description" content="在线时间戳转换工具，支持秒和毫秒互换、日期时间互转">
+    <meta name="keywords" content="时间戳,时间转换,日期转换,在线工具">
+{% endblock %}
+
+{% block tool_name %}时间戳转换工具{% endblock %}
+
+{% block left_content %}
+<div class="card-body p-0">
+    <h3 class="card-title pl-2 title-info">使用场景：</h3>
+    <ul>
+        <li>时间戳转换：<span class="text-muted">将时间戳转换为日期时间，支持秒/毫秒单位</span></li>
+        <li>日期时间转换：<span class="text-muted">将日期时间转换为时间戳格式</span></li>
+    </ul>
+</div>
+
+<h4 class="mt-4">当前时间戳</h4>
+<div class="input-group mb-3">
+    <div class="input-group-prepend">
+        <label class="input-group-text" for="current_ts_unit">单位</label>
+    </div>
+    <select class="custom-select" id="current_ts_unit">
+        <option value="ms" selected>毫秒 (ms)</option>
+        <option value="s">秒 (s)</option>
+    </select>
+
+    <input type="text" class="form-control" id="current_ts_value" readonly>
+
+    <div class="input-group-append">
+        <button class="btn btn-success tool-copy-btn" type="button" onclick="copyToClipboard('current_ts_value')">复制</button>
+    </div>
+</div>
+
+<h5 class="mt-4">时间戳转日期时间</h5>
+<div class="input-group mb-3">
+  <input type="text" class="form-control" id="ts_input" placeholder="请输入时间戳">
+  <select class="custom-select" id="ts_unit">
+    <option value="ms">毫秒(ms)</option>
+    <option value="s">秒(s)</option>
+  </select>
+  <div class="input-group-append">
+    <button class="btn btn-primary" type="button" id="btn_ts_to_dt">转换</button>
+  </div>
+  <input type="text" class="form-control" id="ts_output" placeholder="转换结果" readonly>
+  <div class="input-group-append">
+    <button class="btn btn-success tool-copy-btn" type="button" onclick="copyToClipboard('ts_output')">复制</button>
+  </div>
+</div>
+
+<h5 class="mt-4">日期时间转时间戳</h5>
+<div class="input-group mb-3">
+  <input type="text" class="form-control" id="dt_input" placeholder="2025-05-19 11:15:51">
+  <select class="custom-select" id="dt_unit">
+    <option value="ms">毫秒(ms)</option>
+    <option value="s">秒(s)</option>
+  </select>
+  <div class="input-group-append">
+    <button class="btn btn-primary" type="button" id="btn_dt_to_ts">转换</button>
+  </div>
+  <input type="text" class="form-control" id="dt_output" placeholder="转换结果" readonly>
+  <div class="input-group-append">
+    <button class="btn btn-success tool-copy-btn" type="button" onclick="copyToClipboard('dt_output')">复制</button>
+  </div>
+</div>
+
+    <div class="small mt-4">简介：时间戳是表示某一时刻距离1970年1月1日00:00:00（UTC）经过的总秒数或毫秒数的数字，用于精确记录和表示时间点。</div>
+{% endblock %}
+
+{% block end_f %}
+<script>
+  // 当前时间戳显示，每秒刷新
+  function updateCurrentTs() {
+    const unit = document.getElementById('current_ts_unit').value;
+    const now = Date.now();
+    let ts = now;
+    if (unit === 's') {
+      ts = Math.floor(now / 1000);
+    }
+    document.getElementById('current_ts_value').value = ts;
+  }
+  document.getElementById('current_ts_unit').addEventListener('change', updateCurrentTs);
+  updateCurrentTs();
+  setInterval(updateCurrentTs, 1000);
+
+  // 时间戳转日期时间（始终输出"YYYY-MM-DD HH:mm:ss"格式）
+  function convertTsToDatetime() {
+    const ts = document.getElementById('ts_input').value.trim();
+    const unit = document.getElementById('ts_unit').value;
+    if (!/^\d+$/.test(ts)) {
+      alert('请输入有效的时间戳');
+      return;
+    }
+    let timestamp = parseInt(ts, 10);
+    if (unit === 's') {
+      timestamp = timestamp * 1000;
+    } else if (unit === 'ms' && ts.length === 10) {
+      timestamp = timestamp * 1000;
+    }
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      alert('无效的时间戳');
+      return;
+    }
+    const datetimeStr = date.getFullYear() + '-' +
+      String(date.getMonth() + 1).padStart(2, '0') + '-' +
+      String(date.getDate()).padStart(2, '0') + ' ' +
+      String(date.getHours()).padStart(2, '0') + ':' +
+      String(date.getMinutes()).padStart(2, '0') + ':' +
+      String(date.getSeconds()).padStart(2, '0');
+    document.getElementById('ts_output').value = datetimeStr;
+  }
+
+  // 日期时间转时间戳（仅支持"YYYY-MM-DD HH:mm:ss"格式）
+  function convertDatetimeToTs() {
+    const dtStr = document.getElementById('dt_input').value.trim();
+    const unit = document.getElementById('dt_unit').value;
+    // 严格格式校验
+    const re = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
+    const m = dtStr.match(re);
+    if (!m) {
+      alert('请输入有效的日期时间，格式必须为：YYYY-MM-DD HH:mm:ss');
+      return;
+    }
+    const year = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10) - 1; // JS中月份0-11
+    const day = parseInt(m[3], 10);
+    const hour = parseInt(m[4], 10);
+    const min = parseInt(m[5], 10);
+    const sec = parseInt(m[6], 10);
+
+    const dt = new Date(year, month, day, hour, min, sec);
+    if (isNaN(dt.getTime())) {
+      alert('请输入有效的日期时间，格式必须为：YYYY-MM-DD HH:mm:ss');
+      return;
+    }
+    let ts = dt.getTime();
+    if (unit === 's') {
+      ts = Math.floor(ts / 1000);
+    }
+    document.getElementById('dt_output').value = ts;
+  }
+
+  // 复制
+  function copyToClipboard(id) {
+    const input = document.getElementById(id);
+    input.removeAttribute('readonly');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    input.setAttribute('readonly', true);
+  }
+
+  document.getElementById('btn_ts_to_dt').onclick = convertTsToDatetime;
+  document.getElementById('btn_dt_to_ts').onclick = convertDatetimeToTs;
+  document.getElementById('ts_input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') convertTsToDatetime();
+  });
+  document.getElementById('dt_input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') convertDatetimeToTs();
+  });
+
+  window.addEventListener('DOMContentLoaded', function() {
+    const unit = document.getElementById('current_ts_unit').value;
+    const ts = document.getElementById('current_ts_value').value;
+    document.getElementById('ts_input').value = ts;
+    document.getElementById('ts_unit').value = unit;
+    convertTsToDatetime();
+    // 设置默认日期时间输入框
+    const now = new Date();
+    let yyyy = now.getFullYear();
+    let mm = String(now.getMonth() + 1).padStart(2, '0');
+    let dd = String(now.getDate()).padStart(2, '0');
+    let hh = String(now.getHours()).padStart(2, '0');
+    let min = String(now.getMinutes()).padStart(2, '0');
+    let sec = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('dt_input').value = `${yyyy}-${mm}-${dd} ${hh}:${min}:${sec}`;
+  });
+</script>
+{% endblock %}

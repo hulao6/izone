@@ -173,3 +173,20 @@ def query_ip(request):
 @add_views('tool:linux_timeline', 'Linux 时间线')
 def linux_timeline(request):
     return render(request, 'tool/linux_timeline.html')
+
+
+@add_views('tool:interest_rate', '利率计算器')
+def interest_rate(request):
+    return render(request, 'tool/interest_rate.html')
+
+@add_views('tool:base64', 'Base64编码/解码工具')
+def base64(request):
+    return render(request, 'tool/base64.html')
+
+@add_views('tool:json2yaml', 'JSON/YAML互转工具')
+def json2yaml(request):
+    return render(request, 'tool/json2yaml.html')
+
+@add_views('tool:timestamp', '时间戳转换工具')
+def timestamp(request):
+    return render(request, 'tool/timestamp.html')

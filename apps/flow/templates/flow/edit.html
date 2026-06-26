@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="referrer" content="origin">
+    <!-- TDK and ICO -->
+    <title>编辑流程-BMPN_TendCode</title>
+    <link rel="stylesheet" href="{% static 'flow/css/bpmn-js@18.2.0/diagram-js.css' %}?v=20240221">
+    <link rel="stylesheet" href="{% static 'flow/css/bpmn-js@18.2.0/bpmn.css' %}?v=20240221">
+    <link rel="stylesheet" href="{% static 'flow/css/style.css' %}?v=20240221">
+</head>
+<body>
+    <div class="container-fullscreen with-grid">
+        <div id="canvas"></div>
+        <div class="actions">
+            <input type="file" id="importFile" accept=".bpmn,.xml" style="display: none;">
+            <button id="importBtn" class="btn">导入</button>
+            <button id="exportBtn" class="btn">导出XML</button>
+            <button id="exportSvgBtn" class="btn">导出SVG</button>
+            <button id="saveBtn" class="btn">保存</button>
+            <a href="{% url 'flow:index' %}" class="btn">返回</a>
+        </div>
+    </div>
+    {% csrf_token %}
+    <script>
+        window.isAdmin = "{{ is_admin|lower }}" === "true";
+    </script>
+    <script src="{% static 'flow/js/bpmn-js@18.2.0/bpmn-modeler.development.js' %}?v=20240221"></script>
+    <script src="{% static 'flow/js/admin/api.js' %}?v=20240221"></script>
+    <script src="{% static 'flow/js/admin/storage.js' %}?v=20240221"></script>
+    <script src="{% static 'flow/js/edit.js' %}?v=20240221"></script>
+</body>
+</html>

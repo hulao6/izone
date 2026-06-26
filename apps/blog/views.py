@@ -1,5 +1,6 @@
+import re
 import time
-
+from datetime import datetime
 import markdown
 from django.conf import settings
 from django.core.cache import cache
@@ -14,13 +15,28 @@ from django.shortcuts import get_object_or_404, render, reverse, redirect
 from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views import generic
-from django.views.decorators.http import require_http_methods
+from django.views.generic import TemplateView
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_GET
+from django.db.models.functions import ExtractYear
 from haystack.generic_views import SearchView  # 导入搜索视图
 from haystack.query import SearchQuerySet
 from markdown.extensions.codehilite import CodeHiliteExtension
 from markdown.extensions.toc import TocExtension  # 锚点的拓展
 
-from .models import Article, Tag, Category, Timeline, Silian, AboutBlog, FriendLink, Subject
+from .models import (
+    Article,
+    Tag,
+    Category,
+    Timeline,
+    Silian,
+    AboutBlog,
+    FriendLink,
+    Subject,
+    Fitness,
+    Project,
+    Note,
+)
 from .utils import (site_full_url,
                     CustomHtmlFormatter,
                     ApiResponse,
@@ -35,6 +51,30 @@ from utils.markdown_ext import (
     CodeGroupExtension
 )
 
+
+def preprocess_mermaid_blocks(md_content):
+    """
+    处理 Markdown 内容，将 mermaid 代码块转换为 HTML div，并判断是否包含 mermaid 代码块。
+
+    :param md_content: str，原始 Markdown 文本
+    :return: (str, bool) -> 处理后的 Markdown 内容 & 是否包含 mermaid 代码块
+    """
+    # 允许 mermaid 代码块前有 0 个或多个空格 + 可选的换行
+    mermaid_pattern = re.compile(r'^\s*```mermaid\s*\n(.*?)\n```', re.DOTALL | re.MULTILINE)
+
+    has_mermaid = False  # 是否包含 mermaid 代码块
+
+    def replace_mermaid_block(match):
+        nonlocal has_mermaid
+        content = match.group(1).strip()
+        if content:  # 仅转换非空 Mermaid 代码块
+            has_mermaid = True
+            return f"<pre class='mermaid'>\n{content}\n</pre>"
+        return match.group(0)  # 保留原始 Markdown
+
+    processed_content = mermaid_pattern.sub(replace_mermaid_block, md_content)
+
+    return processed_content, has_mermaid
 
 def make_markdown():
     md = markdown.Markdown(extensions=[
@@ -132,12 +172,14 @@ class BaseDetailView(generic.DetailView):
         md_key = self.context_object_name + ':markdown:{}:{}'.format(obj.id, ud)
         cache_md = cache.get(md_key)
         if cache_md and settings.DEBUG is False:
-            obj.body, obj.toc = cache_md
+            obj.body, obj.toc, obj.has_mermaid = cache_md
         else:
             md = make_markdown()
-            obj.body = md.convert(obj.body)
+            processed_content, has_mermaid = preprocess_mermaid_blocks(obj.body)
+            obj.body = md.convert(processed_content)
+            obj.has_mermaid = has_mermaid
             obj.toc = md.toc
-            cache.set(md_key, (obj.body, obj.toc), 3600 * 24 * 7)
+            cache.set(md_key, (obj.body, obj.toc, obj.has_mermaid), 3600 * 24 * 7)
         return obj
 
 
@@ -372,6 +414,17 @@ class SubjectListView(generic.ListView):
     paginate_orphans = 0
 
 
+class TagListView(generic.ListView):
+    model = Tag
+    template_name = 'blog/tagIndex.html'
+    context_object_name = 'tags'
+    paginate_by = 500
+    paginate_orphans = 0
+
+    def get_ordering(self):
+        return 'name',
+
+
 # dashboard页面，仅管理员可以访问，其他用户不能访问
 def dashboard(request):
     if request.user.is_staff:
@@ -382,3 +435,81 @@ def dashboard(request):
 # feed hub
 def feed_hub(request):
     return render(request, 'blog/feedhub.html')
+
+
+@csrf_exempt
+def vitepress_subject_view(request):
+    data = {'code': 0, 'error': '', 'data': []}
+    subjects = Subject.objects.all()
+    for subject in subjects:
+        subject_data = {
+            'name': subject.name,
+            'description': subject.description,
+            'pk': str(subject.pk),
+            'items': []
+        }
+        for topic in subject.get_topics():
+            topic_data = {
+                'name': topic.name,
+                'items': []
+            }
+            for article in topic.get_articles():
+                topic_data['items'].append({
+                    'title': article.title,
+                    'slug': article.slug
+                })
+            subject_data['items'].append(topic_data)
+        data['data'].append(subject_data)
+    return JsonResponse(data)
+
+
+def get_year_list():
+    this_year = datetime.today().year
+    # 从Fitness模型中提取年份
+    years = (
+        Fitness.objects
+        .annotate(year=ExtractYear('run_date'))  # 从run_date中提取年份
+        .values_list('year', flat=True)  # 仅获取年份字段
+        .distinct()  # 去重
+    )
+    years = sorted(list(set(years)))
+    if this_year not in years:
+        years.append(this_year)
+    # 转换为列表并排序
+    return sorted(list(set(years)))
+
+
+@add_views('blog:health', '慢跑看板')
+def health(request):
+    current_year = request.GET.get('year', datetime.today().year)
+    year_list = get_year_list()
+    context = {'current_year': int(current_year), 'year_list': year_list}
+    return render(request, 'blog/health.html', context)
+
+
+class ProjectListView(generic.ListView):
+    model = Project
+    template_name = 'blog/projectIndex.html'
+    context_object_name = 'projects'
+    paginate_by = 100
+    paginate_orphans = 0
+
+
+@method_decorator(add_views('blog:note_index', '便签笔记'), name='get')
+class NoteIndexView(TemplateView):
+    template_name = 'blog/noteIndex.html'
+
+# standalone api view
+@require_GET
+def notes_api(request):
+    """Return published notes as JSON list"""
+    notes_qs = Note.objects.filter(is_publish=True).order_by('-create_date')
+    notes_list = [
+        {
+            'title': n.title,
+            'content': n.content,
+            'tags': n.get_tag_list(),
+        }
+        for n in notes_qs
+    ]
+    return JsonResponse(notes_list, safe=False, json_dumps_params={'ensure_ascii': False})

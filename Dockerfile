@@ -13,10 +13,13 @@ COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir setuptools==68.0.0 --index-url $pip_index_url --trusted-host $pip_trusted_host
 RUN pip install --no-cache-dir -r requirements.txt --index-url $pip_index_url --trusted-host $pip_trusted_host
 RUN mkdir -p log && chmod -R 755 log
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 COPY . .
 
 # 设置镜像的创建时间，当做网站更新时间
 RUN sed -i "s/web_update_time=\"\"/web_update_time=\"$(date +'%Y-%m-%d %H:%M')\"/g" ./apps/blog/templates/blog/base.html
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "supervisord.conf"]

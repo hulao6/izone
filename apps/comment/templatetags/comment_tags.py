@@ -95,3 +95,67 @@ def emoji_to_url(value):
     """
     emoji_static_url = 'comment/weibo/{}.png'
     return emoji_static_url.format(value)
+
+
+@register.simple_tag
+def split_user_agent(user_agent):
+    """
+    将评论中的浏览器信息解析成系统版本和浏览器版本
+    @param user_agent: PC / Windows 7 / Chrome 55.0.2891
+    @return: Windows 7,Chrome 55.0.2891,windows,chrome
+    """
+    system_dict = {
+        'Windows': 'Windows',
+        'Mac': 'Mac',
+        'iOS': 'iOS',
+        'Android': 'Android',
+        'Ubuntu': 'Ubuntu',
+        'Linux': 'Linux',
+    }
+    browser_dict = {
+        'Chrome': 'Chrome',
+        'Firefox': 'Firefox',
+        'Safari': 'Safari',
+        'Edge': 'Edge',
+        'IE': 'IE',
+        'Opera': 'Opera'
+    }
+    system_info, browser_info = 'Unknown', 'Unknown'
+    system_img, browser_img = 'other_system', 'other_browser'
+    if user_agent and len(user_agent.split(' / ')) == 3:
+        _, system_info, browser_info = user_agent.split(' / ')
+        # 优先使用关键字开头匹配
+        for k, v in system_dict.items():
+            if system_info.strip().startswith(k):
+                system_img = v
+                break
+        for k, v in browser_dict.items():
+            if browser_info.strip().startswith(k):
+                browser_img = v
+                break
+        # 如果开头匹配不到，则使用包含来匹配，开头匹配是优先的
+        if system_img == 'other_system':
+            for k, v in system_dict.items():
+                if k in system_info.strip():
+                    system_img = v
+                    break
+        if browser_img == 'other_browser':
+            for k, v in browser_dict.items():
+                if k in browser_info.strip():
+                    browser_img = v
+                    break
+    return {
+        'system_info': system_info.strip(),
+        'browser_info': browser_info.strip(),
+        'system_img': system_img,
+        'browser_img': browser_img
+    }
+
+@register.inclusion_tag('comment/tags/user_agent.html')
+def load_user_agent_img(user_agent):
+    """
+    加载user_agent页面内容
+    @param user_agent:
+    @return:
+    """
+    return {'user_agent': user_agent}

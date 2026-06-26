@@ -1,0 +1,53 @@
+{% extends "tool/base_tool.html" %}
+{% load static %}
+
+{% block head_title %}Base64编码/解码工具{% endblock %}
+{% block metas %}
+    <meta name="description" content="Base64编码和解码工具，便捷在线转换">
+    <meta name="keywords" content="Base64,编码,解码,在线工具">
+{% endblock %}
+
+{% block tool_name %}Base64编码/解码工具{% endblock %}
+{% block left_content %}
+    <div class="card-body p-0">
+        <h3 class="card-title pl-2 title-info">使用场景：</h3>
+        <ul>
+            <li>Base64编码：<span class="text-muted">将文本内容转换为Base64编码格式</span></li>
+            <li>Base64解码：<span class="text-muted">将Base64编码的内容转换回原始文本</span></li>
+        </ul>
+    </div>
+
+    <!-- 原始文本输入框 -->
+    <h4>输入文本</h4>
+    <div class="input-group mb-3">
+        <textarea class="form-control" id="input_text" rows="5" placeholder="请输入需要编码或解码的文本"></textarea>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="mb-3">
+        <button type="button" class="btn btn-info btn-sm f-16" id="encode_button">Base64编码</button>
+        <button type="button" class="btn btn-info btn-sm f-16" id="decode_button">Base64解码</button>
+        <button type="button" class="btn btn-warning btn-sm f-16" id="swap_button">交换内容</button>
+        <button type="button" class="btn btn-secondary btn-sm f-16" id="clear_button">清空内容</button>
+        <button type="button" class="btn btn-success btn-sm f-16" id="copy_button">复制结果</button>
+    </div>
+
+    <!-- 结果显示文本框 -->
+    <h4>结果文本</h4>
+    <div class="input-group mb-3">
+        <textarea class="form-control" id="output_text" rows="10" readonly placeholder="编码或解码结果显示在此"></textarea>
+    </div>
+    <p class="small">注：默认编码格式为 UTF-8</p>
+
+{% endblock %}
+
+{% block end_f %}
+<script>
+    function toUTF8Bytes(str){const utf8=unescape(encodeURIComponent(str));const bytes=new Uint8Array(utf8.length);for(let i=0;i<utf8.length;i++){bytes[i]=utf8.charCodeAt(i);}return bytes;}function bytesToBase64(bytes){let binary='';const len=bytes.byteLength;for(let i=0;i<len;i++){binary+=String.fromCharCode(bytes[i]);}return btoa(binary);}
+    document.getElementById('encode_button').addEventListener('click',function(){const inputText=document.getElementById('input_text').value;if(inputText===""){alert('请输入文本进行编码');return;}try{const utf8Bytes=toUTF8Bytes(inputText);const encodedText=bytesToBase64(utf8Bytes);document.getElementById('output_text').value=encodedText;}catch(error){alert('编码失败，请确保输入的文本是有效的');}});
+    document.getElementById('decode_button').addEventListener('click',function(){const inputText=document.getElementById('input_text').value;if(inputText===""){alert('请输入Base64文本进行解码');return;}const base64Regex=/^(?:[A-Za-z0-9+\/]{4})*?(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/;if(!base64Regex.test(inputText)){alert('请输入有效的Base64编码进行解码');return;}try{const decodedText=atob(inputText);const decodedUTF8=decodeURIComponent(escape(decodedText));document.getElementById('output_text').value=decodedUTF8;}catch(error){alert('解码失败，请确保输入的Base64格式正确');}});
+    document.getElementById('swap_button').addEventListener('click',function(){const inputText=document.getElementById('input_text').value;const outputText=document.getElementById('output_text').value;document.getElementById('input_text').value=outputText;document.getElementById('output_text').value=inputText;});
+    document.getElementById('clear_button').addEventListener('click',function(){document.getElementById('input_text').value="";document.getElementById('output_text').value="";});
+    document.getElementById('copy_button').addEventListener('click',function(){const outputText=document.getElementById('output_text').value;if(outputText===""){alert('没有结果可复制');return;}navigator.clipboard.writeText(outputText).then(function(){alert('结果已复制到剪贴板！');}).catch(function(err){console.error('复制失败：',err);alert('复制失败，请手动复制内容');});});
+</script>
+{% endblock %}

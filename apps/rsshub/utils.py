@@ -60,10 +60,11 @@ def get_cnblogs_pick():
     url = 'https://www.cnblogs.com/pick/'
     try:
         response = requests.get(url, timeout=5, verify=False)
+        text = response.text
     except:
-        response = ''
+        text = ''
     article_list = re.findall('<a class="post-item-title" href="(.*?)" target="_blank">(.*?)</a>',
-                              response.text)
+                              text)
     rss = RSSResponse()
     items = []
     for link, title in article_list:
@@ -72,17 +73,27 @@ def get_cnblogs_pick():
     return rss.as_dict()
 
 
-def get_github_issues(url):
+def get_github_issues(api_url):
     try:
-        response = requests.get(url, timeout=10, verify=False)
+        headers = {
+            'User-Agent': 'Awesome-Octocat-App',
+            'Accept': 'application/vnd.github+json'
+        }
+        response = requests.get(api_url, timeout=10, verify=False, headers=headers)
+        if response.status_code == 200 and isinstance(response.json(), list):
+            issues = response.json()
+        else:
+            issues = []
     except:
-        response = ''
-    issues = re.findall(
-        r'data-hovercard-type="issue" data-hovercard-url=".*?" href="(.*?)">(.*?)</a>',
-        response.text)
+        issues = []
     rss = RSSResponse()
     items = []
-    for link, title in issues:
-        items.append({'title': title.strip(), 'link': 'https://github.com' + link})
+    for issue in issues:
+        items.append({'title': issue['title'], 'link': issue['html_url']})
     rss.items = items
     return rss.as_dict()
+
+
+if __name__ == '__main__':
+    f = get_github_issues('https://api.github.com/repos/ruanyf/weekly/issues')
+    print(f)
