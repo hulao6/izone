@@ -113,5 +113,8 @@ templates/test*.html
 # IDE
 .vscode/
 
+# Superpowers brainstorm
+.superpowers/
+
 # log
 log/*.log*
