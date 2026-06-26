@@ -36,5 +36,7 @@ RUN django-admin compilemessages
 # 设置镜像的创建时间，当做网站更新时间
 RUN sed -i "s/web_update_time=\"\"/web_update_time=\"$(date +'%Y-%m-%d %H:%M')\"/g" ./apps/blog/templates/blog/base.html
 
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "supervisord.conf"]
+
