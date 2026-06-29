@@ -17,7 +17,7 @@ from django.utils.text import slugify
 from django.views import generic
 from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods, require_GET
+from django.views.decorators.http import require_http_methods
 from django.db.models.functions import ExtractYear
 from haystack.generic_views import SearchView  # 导入搜索视图
 from haystack.query import SearchQuerySet
@@ -500,12 +500,55 @@ class NoteIndexView(TemplateView):
     template_name = 'blog/noteIndex.html'
 
 # standalone api view
-@require_GET
+@csrf_exempt
 def notes_api(request):
-    """Return published notes as JSON list"""
+    """GET: Return published notes as JSON list. POST: Create/update note (admin only)."""
+    if request.method == 'POST':
+        if not request.user.is_staff:
+            return JsonResponse({'error': 'Unauthorized'}, status=403)
+        try:
+            import json
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        note_id = data.get('id')
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        tags = data.get('tags', '').strip()
+        is_publish = data.get('is_publish', True)
+
+        if not title:
+            return JsonResponse({'error': '标题不能为空'}, status=400)
+
+        if note_id:
+            try:
+                note = Note.objects.get(pk=note_id)
+            except Note.DoesNotExist:
+                return JsonResponse({'error': '笔记不存在'}, status=404)
+            note.title = title
+            note.content = content
+            note.tags = tags
+            note.is_publish = is_publish
+            note.save()
+        else:
+            note = Note.objects.create(
+                title=title, content=content, tags=tags, is_publish=is_publish
+            )
+
+        return JsonResponse({
+            'id': note.pk,
+            'title': note.title,
+            'content': note.content,
+            'tags': note.get_tag_list(),
+            'is_publish': note.is_publish,
+        }, json_dumps_params={'ensure_ascii': False})
+
+    # GET
     notes_qs = Note.objects.filter(is_publish=True).order_by('-create_date')
     notes_list = [
         {
+            'id': n.pk,
             'title': n.title,
             'content': n.content,
             'tags': n.get_tag_list(),
