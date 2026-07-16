@@ -177,11 +177,13 @@ POST /openapi/v1/skill/articles/publish/
 1. 校验必填字段: title, slug, body, category.name
 2. 校验 slug 唯一性 → 冲突则返回错误
 3. 处理 category:
-   - 按 name 查 → 存在 → 关联
+   - 按 name 查 → 存在 → 关联已有 Category
+     - 同时检查 description: 如果 AI 提供了更好的描述 → 更新
    - 不存在 → 用 AI 提供的 slug + description 创建新 Category
    - slug 冲突 → 返回错误: "分类 'XXX' 不存在，尝试创建时 slug 'xxx' 已被占用"
 4. 处理 tags（逐个）:
-   - 按 name 查 → 存在 → 关联
+   - 按 name 查 → 存在 → 关联已有 Tag
+     - 同时检查 description: 如果 AI 提供了更好的描述 → 更新
    - 不存在 → 用 AI 提供的 slug + description 创建新 Tag
    - slug 冲突 → 返回错误
 5. 处理 keywords（逐个）:
@@ -189,7 +191,7 @@ POST /openapi/v1/skill/articles/publish/
 6. 处理 topic:
    - 如果提供了 topic.id → 直接查 ID 关联
    - 如果提供了 topic.name → 按名称查，找到关联
-   - 都不存在 → 不创建，返回错误: "主题 'XXX' 不存在"
+   - 都不存在 → 不创建，返回错误: "主题 'XXX' 不存在，可用主题: ..."
 7. 从 request.user 设置 author
 8. 创建 Article，返回成功结果
 ```
@@ -273,8 +275,8 @@ Skill 指令的核心内容（告诉 AI 如何执行发布流程）：
    - 分类: 配置默认 > 内容推断 > 询问用户
    - 标签: 名称精确匹配已有标签 > 名称模糊匹配 > 建议新建
    - 主题: 匹配已有主题 > 不设置
-   - 对于已存在的：直接复用已有信息（name + slug + description）
-   - 对于新建的：AI 生成完整的 name、slug、description
+   - 对于已匹配到的分类/标签：复用已有信息，如果原描述缺失或不清晰，AI 生成更好的描述传入（接口会更新）
+   - 对于新建的分类/标签：AI 生成完整的 name、slug、description
 6. **展示确认**: 一次性展示所有解析结果，等待用户确认或微调
 7. **发布**: `POST {api_base}/skill/articles/publish/`
 8. **错误处理**: 解析错误信息，自动修复可修复的（如 slug 冲突→重新生成），无法修复的展示给用户
