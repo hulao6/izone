@@ -119,34 +119,55 @@ POST /openapi/v1/skill/articles/publish/
 
 **认证**: Token（Header: `Authorization: Token xxx`）
 
+**字段约束（来自模型定义，AI 和接口共同遵守）：**
+
+| 字段 | 模型限制 | Skill 行为 |
+|------|----------|-----------|
+| `title` | max_length=**150** | AI 保证 ≤150 字符 |
+| `slug` | SlugField, max_length=**50**, unique | AI 根据标题生成，≤50 字符 |
+| `body` | TextField（无限制） | 原始 markdown，不做修改 |
+| `summary` | max_length=**230** | AI 根据文章内容生成，≤230 字符 |
+| `is_publish` | BooleanField | **默认 `false`**（存草稿，需手动发布） |
+| `img_link` | 已有默认值 | **不传**，使用默认图片 |
+| `category.name` | max_length=**20** | AI 生成，≤20 字符 |
+| `category.slug` | SlugField, max_length=**50**, unique | AI 生成 |
+| `category.description` | max_length=**240** | AI 生成，≤240 字符 |
+| `tag.name` | max_length=**20** | AI 生成，≤20 字符 |
+| `tag.slug` | SlugField, max_length=**50**, unique | AI 生成 |
+| `tag.description` | max_length=**240** | AI 生成，≤240 字符 |
+| `keyword.name` | max_length=**20** | AI 提取或生成 |
+| `topic_order` | IntegerField | 可选，默认 99 |
+| `topic_short_title` | max_length=**50** | 可选 |
+
+> **核心原则**: 分类和标签的信息（name、slug、description）由 AI 补全，接口只做 get-or-create 校验。`is_publish` 默认 `false` 存草稿，`img_link` 不传使用默认图。
+
 **入参:**
 ```json
 {
-  "title": "文章标题（必填）",
-  "slug": "ai-generated-slug（必填）",
+  "title": "文章标题 ≤150字符（必填）",
+  "slug": "ai-generated-slug ≤50字符（必填）",
   "body": "markdown 正文（必填）",
-  "summary": "摘要（可选，不填则截取 body 前 230 字符）",
-  "is_publish": true,
-  "img_link": "可选图片链接",
+  "summary": "AI 据内容生成 ≤230字符（必填）",
+  "is_publish": false,
   "category": {
-    "name": "分类名（必填）",
-    "slug": "category-slug（新建时必填）",
-    "description": "SEO 描述（可选，默认'分类描述'）"
+    "name": "分类名 ≤20字符（必填）",
+    "slug": "分类slug ≤50字符（AI生成，必填）",
+    "description": "SEO描述 ≤240字符（AI生成，必填）"
   },
   "tags": [
     {
-      "name": "标签名（必填）",
-      "slug": "tag-slug（新建时必填）",
-      "description": "SEO 描述（可选，默认'标签描述'）"
+      "name": "标签名 ≤20字符（必填）",
+      "slug": "标签slug ≤50字符（AI生成，必填）",
+      "description": "SEO描述 ≤240字符（AI生成，必填）"
     }
   ],
-  "keywords": ["关键词1", "关键词2"],
+  "keywords": ["关键词 ≤20字符"],
   "topic": {
     "id": 1,
     "name": "主题名（可选，用于校验）"
   },
   "topic_order": 99,
-  "topic_short_title": "简短标题（可选）"
+  "topic_short_title": "简短标题 ≤50字符（可选）"
 }
 ```
 
@@ -239,18 +260,21 @@ Skill 指令的核心内容（告诉 AI 如何执行发布流程）：
 
 1. **读取配置**: 从 `.claude/skill-publish.json` 获取 api_base、token、默认分类等
 2. **获取内容**: 用户提供 markdown 文件路径或直接粘贴内容
-3. **解析内容**:
-   - 从第一个 `# 标题` 提取 title
-   - 生成 slug: 英文翻译/音译，小写，空格转连字符
-   - 生成 summary: 取正文去除 markdown 标记后的前 230 字符
+3. **解析内容**（遵守字段约束表）:
+   - 从第一个 `# 标题` 提取 title，保证 ≤150 字符
+   - 生成 slug: 英文翻译/音译，小写，空格转连字符，≤50 字符
+   - 生成 summary: 根据文章内容总结提炼，非简单截取，≤230 字符
    - 分析关键词，推断分类和标签
+   - 分类/标签信息补全: name（≤20）、slug（≤50）、description（≤240）
+   - `is_publish` 默认 `false`（存草稿）
+   - `img_link` 不传（使用默认图片）
 4. **查询上下文**: `GET {api_base}/skill/meta/` 获取已有分类/标签/主题
 5. **匹配决策**:
    - 分类: 配置默认 > 内容推断 > 询问用户
    - 标签: 名称精确匹配已有标签 > 名称模糊匹配 > 建议新建
    - 主题: 匹配已有主题 > 不设置
-   - 对于已存在的：直接用，不需要重复传 slug/description
-   - 对于新建的：AI 生成 slug 和 description
+   - 对于已存在的：直接复用已有信息（name + slug + description）
+   - 对于新建的：AI 生成完整的 name、slug、description
 6. **展示确认**: 一次性展示所有解析结果，等待用户确认或微调
 7. **发布**: `POST {api_base}/skill/articles/publish/`
 8. **错误处理**: 解析错误信息，自动修复可修复的（如 slug 冲突→重新生成），无法修复的展示给用户
@@ -277,8 +301,9 @@ AI:
 用户: 标签加个 DRF
 
 AI:
-  ✅ 发布成功！
-  查看文章: https://izone.org.cn/article/drf-best-practices/
+  ✅ 文章已保存为草稿！
+  预览地址: https://izone.org.cn/article/drf-best-practices/
+  可在后台设置发布状态。
 ```
 
 ## 5. 实现计划（概要）
