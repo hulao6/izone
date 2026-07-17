@@ -124,7 +124,7 @@ Extract:
 |-------|-----|------------|
 | `title` | Article topic or first `#` heading from source (if any). Body must not contain `#` headings. | ≤150 chars |
 | `slug` | Translate title to English (or pinyin for pure Chinese), lowercase, hyphens | ≤50 chars |
-| `summary` | Summarize core content in 1-2 natural sentences | ≤230 chars |
+| `summary` | Summarize core content in 2-3 sentences. Chinese ~150-230 chars, English ~100-150 words (roughly equivalent). Don't be too brief — cover the article's main point and scope. | ≤230 chars |
 | `body` | The full markdown, with spacing verified | Unmodified |
 | `is_publish` | Always `false` | Draft |
 | `is_top` | `true` only if user says "置顶" | |
