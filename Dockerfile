@@ -8,7 +8,7 @@ ARG pip_trusted_host=pypi.org
 ENV PYTHONUNBUFFERED=1
 WORKDIR /opt/cloud/izone
 
-RUN apt-get update && apt-get install -y --no-install-recommends libcairo2 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libcairo2 fonts-noto-cjk && rm -rf /var/lib/apt/lists/*
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir setuptools==68.0.0 --index-url $pip_index_url --trusted-host $pip_trusted_host
