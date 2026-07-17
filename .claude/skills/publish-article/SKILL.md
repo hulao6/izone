@@ -203,7 +203,7 @@ Extract:
 | `slug` | Translate title to English (or pinyin for pure Chinese), lowercase, hyphens | ≤50 chars |
 | `summary` | Summarize core content in 2-3 sentences. Chinese ~150-230 chars, English ~100-150 words (roughly equivalent). Don't be too brief — cover the article's main point and scope. | ≤230 chars |
 | `body` | The full markdown, with spacing verified | Unmodified |
-| `is_publish` | Always `false` | Draft |
+| `is_publish` | Default `false`（草稿）。If user explicitly says "发布"/"直接发布"/"publish", set `true` | Draft or Published |
 | `is_top` | `true` only if user says "置顶" | |
 | `img_link` | Cover image path from upload API. Omit to use default. | Relative path |
 
@@ -237,7 +237,7 @@ Present summary and wait for explicit confirmation:
 📖 主题: [<subject>] <topic>
 📌 置顶: 否
 📄 摘要: <summary>... (<n>字符)
-📝 状态: 草稿
+📝 状态: <草稿/直接发布>
 
 确认提交？
 ```
