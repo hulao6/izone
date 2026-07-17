@@ -213,6 +213,7 @@ class SkillArticleQueryView(APIView):
 
         try:
             article = Article.objects.get(slug=slug)
+            topic = article.topic
             return Response({
                 'success': True,
                 'exists': True,
@@ -220,13 +221,30 @@ class SkillArticleQueryView(APIView):
                     'id': article.id,
                     'title': article.title,
                     'slug': article.slug,
-                    'summary': article.summary,
                     'body': article.body,
+                    'summary': article.summary,
                     'is_publish': article.is_publish,
                     'is_top': article.is_top,
-                    'category': article.category.name if article.category else None,
-                    'tags': [t.name for t in article.tags.all()],
-                    'topic': article.topic.name if article.topic else None,
+                    'img_link': str(article.img_link) if article.img_link else '',
+                    'category': {
+                        'name': article.category.name,
+                        'slug': article.category.slug,
+                        'description': article.category.description,
+                    } if article.category else None,
+                    'tags': [{
+                        'name': t.name,
+                        'slug': t.slug,
+                        'description': t.description,
+                    } for t in article.tags.all()],
+                    'keywords': [k.name for k in article.keywords.all()],
+                    'topic': {
+                        'id': topic.id,
+                        'name': topic.name,
+                        'subject_id': topic.subject.id,
+                        'subject_name': topic.subject.name,
+                    } if topic else None,
+                    'topic_order': article.topic_order,
+                    'topic_short_title': article.topic_short_title,
                     'create_date': article.create_date.strftime('%Y-%m-%d %H:%M'),
                     'update_date': article.update_date.strftime('%Y-%m-%d %H:%M'),
                 }
