@@ -119,7 +119,7 @@ class SkillImageUploadView(APIView):
         if ext not in ('png', 'jpg', 'jpeg', 'svg'):
             return Response({'success': False, 'error': f'不支持的文件类型: .{ext}'}, status=400)
 
-        import uuid, os, subprocess, tempfile
+        import uuid, os
         from datetime import datetime
 
         name = f"{uuid.uuid4().hex}.png"
@@ -130,30 +130,37 @@ class SkillImageUploadView(APIView):
         filepath = os.path.join(upload_dir, name)
 
         if ext == 'svg':
-            # 使用系统工具转 SVG → PNG
+            import platform, subprocess, tempfile
             svg_data = file.read()
-            with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as tmp:
-                tmp.write(svg_data)
-                tmp_path = tmp.name
-            try:
-                # macOS: qlmanage, Linux: rsvg-convert
-                if subprocess.run(['which', 'qlmanage'], capture_output=True).returncode == 0:
+            if platform.system() == 'Darwin':
+                # macOS: qlmanage + PIL 裁剪
+                with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as tmp:
+                    tmp.write(svg_data)
+                    tmp_path = tmp.name
+                try:
                     subprocess.run(['qlmanage', '-t', '-s', '500', '-o', upload_dir, tmp_path],
                                    capture_output=True, timeout=10)
-                    # qlmanage outputs <name>.svg.png, rename it
                     generated = os.path.join(upload_dir, os.path.basename(tmp_path) + '.png')
                     if os.path.exists(generated):
-                        os.rename(generated, filepath)
-                elif subprocess.run(['which', 'rsvg-convert'], capture_output=True).returncode == 0:
-                    subprocess.run(['rsvg-convert', '-w', '500', '-o', filepath, tmp_path],
-                                   capture_output=True, timeout=10)
-                else:
+                        from PIL import Image
+                        img = Image.open(generated)
+                        # qlmanage 输出 500×500，内容在顶部，从顶部裁剪 500×300
+                        img = img.crop((0, 0, 500, 300))
+                        img.save(filepath, 'PNG')
+                        os.unlink(generated)
+                finally:
+                    os.unlink(tmp_path)
+            else:
+                # Linux/Docker: cairosvg
+                try:
+                    import cairosvg
+                    cairosvg.svg2png(bytestring=svg_data, write_to=filepath,
+                                     output_width=500, output_height=300)
+                except ImportError:
                     return Response({
                         'success': False,
-                        'error': '服务器缺少 SVG 转换工具（qlmanage/rsvg-convert）'
+                        'error': '服务器缺少 cairosvg，请检查 requirements.txt'
                     }, status=500)
-            finally:
-                os.unlink(tmp_path)
             if not os.path.exists(filepath):
                 return Response({'success': False, 'error': 'SVG 转换失败'}, status=500)
         else:

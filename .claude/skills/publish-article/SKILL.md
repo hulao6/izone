@@ -67,16 +67,18 @@ To generate and upload a cover image for the article:
 **SVG template spec:**
 - Size: 500×300 (2x retina, imagekit resizes to 250×150)
 
-**Required design elements (keep it simple and readable at 250×150 display size):**
+**Required design elements (optimized for readability at 250×150 display size):**
 - **Background**: Dark gradient, vary by article — navy (#0f172a/#1e293b), deep purple (#1a0f2e/#2d1f4e), dark teal (#0f1a1f/#1a2f33), warm dark (#1f1a0f/#332d1a). Pick one that fits the article's mood. No grid pattern.
 - **Glow**: 1-2 large low-opacity circles in corners (opacity 0.04-0.08), color matches the accent
-- **Icon row**: 4-5 simple SVG geometric icons (28×28 rounded rects with paths/shapes) above the title, each with a 2-char label below. Each icon uses a different accent color from the palette. Do NOT use emoji or unicode — cairosvg cannot render them.
-- **Top label**: Small pill tag with category keyword (e.g. "DJANGO · AI"), accent gradient fill at low opacity
-- **Main title**: Bold white font, centered, max 2 lines, 26-28px
+- **Top label**: Pill tag with category keyword, accent gradient fill at low opacity, font-size 14px
+- **Icon row**: 4 simple SVG geometric icons (40×40 rounded rects with paths/shapes) above the title, each with a short label below (font-size 12px). Each icon uses a different accent color. Do NOT use emoji or unicode — cairosvg cannot render them.
+- **Main title**: Bold white font, centered, max 2 lines, **36-40px**
 - **Accent line**: Short gradient line + dot under the title
-- **Description**: One line of lighter text summarizing the article's key topics
-- **Bottom**: Site name + year in small mono font
-- **Color**: Choose a 2-3 color accent palette per article based on its category and tone — never reuse exactly the same palette twice. The background shade and accent colors should both vary.
+- **Description**: One line of lighter text summarizing key topics, font-size **18px**
+- **No bottom bar** — the space is used to enlarge the title and description
+- **Color**: Choose a 2-3 color accent palette per article, vary background shade and accent colors each time
+
+**Font sizing rule**: The 500×300 SVG gets resized to 250×150 by imagekit. At that size, text under 12px becomes unreadable. Minimum font sizes: title 36px, description 18px, labels 14px, icon labels 12px. No bottom bar — use all 300px of height for the main content.
 
 **Do NOT add**: content cards, code blocks, complex diagrams, emoji/unicode symbols, or more than 1 line of description. The title is the hero — icons and glow circles are subtle support.
 
@@ -115,7 +117,7 @@ When the user provides a topic or outline:
 
 1. Plan the article structure (numbered headings, key points, code examples)
 2. Generate a slug from the title
-3. Write the article to `/tmp/<slug>.md` following Writing Guidelines
+3. **Write the article to `/tmp/<slug>.md`** following Writing Guidelines (mandatory — never present content inline only)
 4. Read the file back and present to user
 5. Ask: "需要调整什么吗？确认后可以推送到博客。"
 
@@ -146,11 +148,13 @@ visible to the user, skip to Step 4 (metadata matching).
 
 Ensure `$IZONE_API_TOKEN` and `$IZONE_API_BASE` are set. See [references/config.md](references/config.md).
 
-### Step 2: Obtain Article Content
+### Step 2: Prepare Article File
 
-- **File path** → Use Read tool
-- **Content in conversation** → Use the article just written/organized
-- **Modifying an existing article** → First query the article to check existence
+**MANDATORY: The article body MUST be written to a file before publishing. Never inline the body in a bash command — shell escaping will corrupt code blocks, special characters, and backticks.**
+
+- **From a file path** → Read with Read tool, write to `/tmp/<slug>.md`
+- **From conversation content** → Write to `/tmp/<slug>.md` using Write tool
+- **Modifying an existing article** → First query to check existence, then write updated content to `/tmp/<slug>.md`
 
 To check if an article already exists by slug:
 
@@ -160,6 +164,8 @@ curl -s -H "Authorization: Token $IZONE_API_TOKEN" "$IZONE_API_BASE/skill/articl
 
 If `exists: true`, the article already exists. Publishing with the same slug will **update** it.
 If `exists: false`, publishing with this slug will **create** a new article.
+
+The `/tmp/<slug>.md` file is the single source of truth for the article body. All subsequent steps read from it.
 
 ### Step 3: Parse Metadata
 
@@ -212,16 +218,10 @@ Present summary and wait for explicit confirmation:
 
 ### Step 7: Publish
 
-Write the article body to a temp file first (avoids shell escaping issues with code blocks and special
-characters), then read it into the JSON payload using Python:
+Read the body from `/tmp/<slug>.md` (created in Step 2) and publish via Python. This isolates the
+article content from the shell, preventing any escaping issues:
 
 ```bash
-# 1. Write article body to file (filename = slug)
-cat > /tmp/<slug>.md << 'ARTICLE_EOF'
-<article body content>
-ARTICLE_EOF
-
-# 2. Build JSON payload and publish via Python (handles escaping reliably)
 python3 -c "
 import json, subprocess, os
 
@@ -251,6 +251,8 @@ result = subprocess.run([
 print(result.stdout)
 "
 ```
+
+If a cover image was uploaded, add `'img_link': '<uploaded_path>'` to the payload dict.
 
 ### Step 8: Confirm Result
 
