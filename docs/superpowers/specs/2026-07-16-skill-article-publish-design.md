@@ -97,13 +97,15 @@ GET /openapi/v1/skill/meta/
       "id": 1,
       "name": "入门篇",
       "subject_id": 1,
-      "subject_name": "Django实战系列"
+      "subject_name": "Django实战系列",
+      "subject_status": "ongoing"
     },
     {
       "id": 2,
       "name": "高级篇",
       "subject_id": 1,
-      "subject_name": "Django实战系列"
+      "subject_name": "Django实战系列",
+      "subject_status": "ongoing"
     }
   ]
 }
@@ -121,25 +123,32 @@ POST /openapi/v1/skill/articles/publish/
 
 **字段约束（来自模型定义，AI 和接口共同遵守）：**
 
-| 字段 | 模型限制 | Skill 行为 |
+| 字段 | 模型定义 | Skill 行为 |
 |------|----------|-----------|
-| `title` | max_length=**150** | AI 保证 ≤150 字符 |
-| `slug` | SlugField, max_length=**50**, unique | AI 根据标题生成，≤50 字符 |
+| `title` | CharField, max_length=**150** | AI 保证 ≤150 字符 |
+| `slug` | SlugField, max_length=**50**, **unique** | AI 根据标题生成，≤50 字符 |
 | `body` | TextField（无限制） | 原始 markdown，不做修改 |
-| `summary` | max_length=**230** | AI 根据文章内容生成，≤230 字符 |
-| `is_publish` | BooleanField | **默认 `false`**（存草稿，需手动发布） |
-| `img_link` | 已有默认值 | **不传**，使用默认图片 |
-| `category.name` | max_length=**20** | AI 生成，≤20 字符 |
-| `category.slug` | SlugField, max_length=**50**, unique | AI 生成 |
-| `category.description` | max_length=**240** | AI 生成，≤240 字符 |
-| `tag.name` | max_length=**20** | AI 生成，≤20 字符 |
-| `tag.slug` | SlugField, max_length=**50**, unique | AI 生成 |
-| `tag.description` | max_length=**240** | AI 生成，≤240 字符 |
-| `keyword.name` | max_length=**20** | AI 提取或生成 |
-| `topic_order` | IntegerField | 可选，默认 99 |
-| `topic_short_title` | max_length=**50** | 可选 |
+| `summary` | TextField, max_length=**230** | AI 根据文章内容生成，≤230 字符 |
+| `is_publish` | BooleanField, default=True | **默认 `false`**（存草稿，手动发布时 create_date 自动更新） |
+| `is_top` | BooleanField, default=False | AI 根据用户意图设置，默认 `false` |
+| `img_link` | ProcessedImageField, blank=True, 有默认图 | **不传**，使用默认图片 |
+| `category.name` | CharField, max_length=**20**（非 unique） | AI 匹配或生成，≤20 字符 |
+| `category.slug` | SlugField, max_length=**50**, **unique** | AI 生成 |
+| `category.description` | TextField, max_length=**240** | AI 生成，≤240 字符 |
+| `tag.name` | CharField, max_length=**20**（非 unique） | AI 匹配或生成，≤20 字符 |
+| `tag.slug` | SlugField, max_length=**50**, **unique** | AI 生成 |
+| `tag.description` | TextField, max_length=**240** | AI 生成，≤240 字符 |
+| `keyword.name` | CharField, max_length=**20** | AI 提取或生成 |
+| `topic_order` | IntegerField, default=99, null/blank | 可选，默认 99 |
+| `topic_short_title` | CharField, max_length=**50**, null/blank | 可选 |
 
-> **核心原则**: 分类和标签的信息（name、slug、description）由 AI 补全，接口只做 get-or-create 校验。`is_publish` 默认 `false` 存草稿，`img_link` 不传使用默认图。
+> ⚠️ **注意**: Category 和 Tag 的 `name` 字段**不是 unique**，只有 `slug` 是 unique。接口按 name 查询时使用 `.filter(name=name).first()` 而非 `.get(name=name)`。
+
+> **核心原则**:
+> - 分类和标签的信息（name、slug、description）由 AI 补全，接口只做 get-or-create + 描述更新
+> - `is_publish` 默认 `false`（存草稿），`img_link` 不传（使用默认图）
+> - `Article.save()`: 当 `is_publish` 从 False→True 时，`create_date` 重置为发布时间
+> - Category/Tag 按 `name` 查询使用 `.filter().first()`（name 非 unique，slug 才是 unique）
 
 **入参:**
 ```json
@@ -149,6 +158,7 @@ POST /openapi/v1/skill/articles/publish/
   "body": "markdown 正文（必填）",
   "summary": "AI 据内容生成 ≤230字符（必填）",
   "is_publish": false,
+  "is_top": false,
   "category": {
     "name": "分类名 ≤20字符（必填）",
     "slug": "分类slug ≤50字符（AI生成，必填）",
@@ -176,12 +186,12 @@ POST /openapi/v1/skill/articles/publish/
 ```
 1. 校验必填字段: title, slug, body, category.name
 2. 校验 slug 唯一性 → 冲突则返回错误
-3. 处理 category:
+3. 处理 category（name 非 unique，使用 .filter().first() 查询）:
    - 按 name 查 → 存在 → 关联已有 Category
      - 同时检查 description: 如果 AI 提供了更好的描述 → 更新
    - 不存在 → 用 AI 提供的 slug + description 创建新 Category
-   - slug 冲突 → 返回错误: "分类 'XXX' 不存在，尝试创建时 slug 'xxx' 已被占用"
-4. 处理 tags（逐个）:
+   - slug 冲突 → 返回错误
+4. 处理 tags（逐个，name 非 unique，使用 .filter().first() 查询）:
    - 按 name 查 → 存在 → 关联已有 Tag
      - 同时检查 description: 如果 AI 提供了更好的描述 → 更新
    - 不存在 → 用 AI 提供的 slug + description 创建新 Tag
@@ -191,9 +201,11 @@ POST /openapi/v1/skill/articles/publish/
 6. 处理 topic:
    - 如果提供了 topic.id → 直接查 ID 关联
    - 如果提供了 topic.name → 按名称查，找到关联
-   - 都不存在 → 不创建，返回错误: "主题 'XXX' 不存在，可用主题: ..."
+   - 都不存在 → 不创建，返回错误，列出可用主题
 7. 从 request.user 设置 author
-8. 创建 Article，返回成功结果
+8. 设置 is_top（默认 false）
+9. 设置 is_publish = False（存草稿，发布时 save() 自动更新 create_date）
+10. 创建 Article，返回成功结果
 ```
 
 **成功响应 201:**
@@ -268,7 +280,8 @@ Skill 指令的核心内容（告诉 AI 如何执行发布流程）：
    - 生成 summary: 根据文章内容总结提炼，非简单截取，≤230 字符
    - 分析关键词，推断分类和标签
    - 分类/标签信息补全: name（≤20）、slug（≤50）、description（≤240）
-   - `is_publish` 默认 `false`（存草稿）
+   - `is_publish` 默认 `false`（存草稿，后续手动发布时 create_date 自动更新）
+   - `is_top` 默认 `false`
    - `img_link` 不传（使用默认图片）
 4. **查询上下文**: `GET {api_base}/skill/meta/` 获取已有分类/标签/主题
 5. **匹配决策**:
@@ -290,15 +303,17 @@ Skill 指令的核心内容（告诉 AI 如何执行发布流程）：
 AI:
   我解析了这篇文章，请确认以下信息：
 
-  📝 标题: 《Django REST Framework 最佳实践》
+  📝 标题: 《Django REST Framework 最佳实践》 (28字符)
   🔗 Slug: drf-best-practices
-  📂 分类: 技术
-  🏷️ 标签: Django, REST API, Python
-  📖 主题: Django实战系列 → 入门篇
+  📂 分类: 技术（已有）
+  🏷️ 标签: Django（已有）, REST API（新建）, Python（已有）
+  📖 主题: Django实战系列 → 入门篇（连载中）
+  📌 置顶: 否
   📄 摘要: 本文介绍了 DRF 开发中的 10 个最佳实践，包括序列化器设计、
-         权限控制、性能优化等方面...
+         权限控制、性能优化等方面... (87字符)
+  📝 状态: 存为草稿（需在后台手动发布）
 
-  确认发布吗？或告诉我要调整的地方。
+  确认提交吗？或告诉我要调整的地方。
 
 用户: 标签加个 DRF
 
@@ -335,7 +350,9 @@ AI:
 | 认证方式 | Token / API Key / 仅 Session | **Token** | DRF 自带，Admin 可管理，全局复用 |
 | 聚合查询 | 多个接口 / 一个聚合接口 | **一个聚合接口** | 减少 AI 的 HTTP 往返，一次性拿到所有上下文 |
 | 接口路径 | 复用现有 REST API / 独立 /skill/ 前缀 | **独立 /skill/ 前缀** | 与现有 REST API 物理隔离，职责清晰 |
-| 分类/标签创建 | 接口只查不建 / 接口 get-or-create | **get-or-create** | AI 负责提供完整信息（slug, description），接口做简单的数据操作 |
+| 分类/标签匹配 | 按 ID / 按 name | **按 name** | name 非 unique 但实际不会重复；接口用 .filter().first() |
+| 分类/标签创建 | 接口只查不建 / get-or-create + 描述更新 | **get-or-create + 更新** | AI 提供完整信息，已有则更新描述，新则创建 |
 | 主题处理 | 允许自动创建 / 仅查不允许建 | **仅查询不允许创建** | 主题有层级关系（Subject→Topic），自动创建风险高 |
 | Slug 生成 | 后端用 pypinyin / AI 生成 | **AI 生成** | AI 擅长语义理解和翻译，无需引入额外依赖 |
 | 内容解析 | 后端解析 / AI 解析 | **AI 解析** | AI 天然理解 markdown 结构和语义 |
+| is_publish | 默认 true / 默认 false | **默认 false（草稿）** | 利用 save() 行为：发布时 create_date 自动更新为发布时间 |
