@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv('IZONE_SECRET_KEY', '#!kta!9e0)24d@9#=*=ra$r!0k0+p5@w+a%7
 # 是否开启[在线工具]应用
 TOOL_FLAG = os.getenv('IZONE_TOOL_FLAG', 'True').upper() == 'TRUE'
 # 是否开启[API]应用
-API_FLAG = os.getenv('IZONE_API_FLAG', 'False').upper() == 'TRUE'
+API_FLAG = os.getenv('IZONE_API_FLAG', 'True').upper() == 'TRUE'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('IZONE_DEBUG', 'True').upper() == 'TRUE'
@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.github',
 
     'rest_framework',
+    'rest_framework.authtoken',  # DRF Token 认证
 
     'crispy_forms',  # bootstrap表单样式
     'imagekit',  # 上传图片的应用
@@ -223,6 +224,11 @@ HAYSTACK_SIGNAL_PROCESSOR = 'haystack.signals.RealtimeSignalProcessor'
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 20

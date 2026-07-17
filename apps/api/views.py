@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from rest_framework import viewsets
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
-from rest_framework.permissions import DjangoModelPermissionsOrAnonReadOnly, IsAdminUser
+from rest_framework import viewsets, permissions
+from rest_framework.permissions import DjangoModelPermissionsOrAnonReadOnly
 from webstack.models import NavigationSite
 
 from blog.models import Article, Tag, Category, Timeline
@@ -27,10 +26,8 @@ class ArticleListSet(viewsets.ModelViewSet):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
 
-    # 指定当前视图的认证方案，不使用全局认证方案
-    authentication_classess = [BasicAuthentication, SessionAuthentication]
-    # 指定当前视图的权限控制方案，不使用全局权限控制方案
-    permission_classes = (IsAdminUser,)
+    # 使用全局认证方案（TokenAuthentication + SessionAuthentication + BasicAuthentication）
+    permission_classes = (permissions.IsAuthenticated,)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -78,3 +75,66 @@ class NavigationSiteListSet(viewsets.ModelViewSet):
         elif is_show == 'false':
             queryset = queryset.filter(is_show=False)
         return queryset
+
+
+# ==================== Skill 专用 Views ====================
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import serializers as drf_serializers
+from blog.models import Topic
+from .serializers import SkillCategorySerializer, SkillTagSerializer, SkillTopicSerializer
+
+
+class SkillMetaView(APIView):
+    """聚合返回分类、标签、主题列表，供 skill 匹配决策"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        categories = Category.objects.all()
+        tags = Tag.objects.all()
+        topics = Topic.objects.select_related('subject').all()
+
+        return Response({
+            'categories': SkillCategorySerializer(categories, many=True).data,
+            'tags': SkillTagSerializer(tags, many=True).data,
+            'topics': SkillTopicSerializer(topics, many=True).data,
+        })
+
+
+from .serializers import ArticlePublishSerializer
+
+
+class SkillPublishView(APIView):
+    """Skill 专用文章发布接口"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ArticlePublishSerializer(
+            data=request.data, context={'request': request}
+        )
+        if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            first_error = errors[first_field]
+            if isinstance(first_error, list):
+                msg = first_error[0]
+            elif isinstance(first_error, dict):
+                nested_field = next(iter(first_error))
+                msg = f"{first_field}.{nested_field}: {first_error[nested_field][0]}"
+            else:
+                msg = str(first_error)
+            return Response({'success': False, 'error': msg}, status=400)
+
+        try:
+            article = serializer.save()
+            return Response({
+                'success': True,
+                'id': article.id,
+                'url': article.get_absolute_url(),
+                'title': article.title,
+            }, status=201)
+        except drf_serializers.ValidationError as e:
+            detail = e.detail
+            msg = detail[0] if isinstance(detail, list) else str(detail)
+            return Response({'success': False, 'error': msg}, status=400)
