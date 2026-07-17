@@ -78,7 +78,33 @@ To generate and upload a cover image for the article:
 - **No bottom bar** — the space is used to enlarge the title and description
 - **Color**: Choose a 2-3 color accent palette per article, vary background shade and accent colors each time
 
-**Font sizing rule**: The 500×300 SVG gets resized to 250×150 by imagekit. At that size, text under 12px becomes unreadable. Minimum font sizes: title 36px, description 18px, labels 14px, icon labels 12px. No bottom bar — use all 300px of height for the main content.
+### Font Rules (MANDATORY — violations cause unreadable covers or garbled text)
+
+**Font family stack** — every `<text>` element must use this exact attribute:
+
+```
+font-family="'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif"
+```
+
+| 字体 | 覆盖环境 | 原因 |
+|------|----------|------|
+| Noto Sans CJK SC | Linux / Docker 生产 | cairosvg 渲染中文的唯一可用字体，需 `fonts-noto-cjk` apt 包 |
+| PingFang SC | macOS 开发 | macOS 系统原生中文字体 |
+| Microsoft YaHei | Windows | Windows 系统原生中文字体 |
+| sans-serif | 通用回退 | 以上都不可用时的最后兜底 |
+
+> 必须写完整的 4 级回退栈，禁止只用单个字体名。缺失中文回退会导致封面出现乱码（方块或空白）。
+
+**Font sizes** — SVG 是 500×300，经 imagekit `ResizeToFill(250,150)` 缩小一倍后显示。低于 12px 的字体在缩略图尺寸下完全不可读。
+
+| 元素 | 最小 | 最大 | 原因 |
+|------|------|------|------|
+| 主标题 | 36px | 40px | 封面核心信息，必须够大 |
+| 描述 | 18px | 18px | 唯一一行副文本，清晰可读 |
+| 分类标签 | 14px | 14px | 次要标签，但不能看不清 |
+| 图标标签 | 12px | 12px | 最小可用字号，不能再小 |
+
+> 禁止出现 12px 以下的文字，禁止底栏（浪费高度，缩小后看不见）。用全部 300px 高度承载内容。
 
 **Do NOT add**: content cards, code blocks, complex diagrams, emoji/unicode symbols, or more than 1 line of description. The title is the hero — icons and glow circles are subtle support.
 
