@@ -60,6 +60,51 @@ Do not add decorative emoji to article body. Emoji may only be used when:
 - Vary sentence length. Mix short direct sentences with longer explanatory ones.
 - Read like a knowledgeable colleague writing notes, not a textbook.
 
+### Cover Image
+
+To generate and upload a cover image for the article:
+
+**SVG template spec:**
+- Size: 500×300 (2x retina, imagekit resizes to 250×150)
+
+**Required design elements (keep it simple and readable at 250×150 display size):**
+- **Background**: Dark gradient, vary by article — navy (#0f172a/#1e293b), deep purple (#1a0f2e/#2d1f4e), dark teal (#0f1a1f/#1a2f33), warm dark (#1f1a0f/#332d1a). Pick one that fits the article's mood. No grid pattern.
+- **Glow**: 1-2 large low-opacity circles in corners (opacity 0.04-0.08), color matches the accent
+- **Icon row**: 4-5 simple SVG geometric icons (28×28 rounded rects with paths/shapes) above the title, each with a 2-char label below. Each icon uses a different accent color from the palette. Do NOT use emoji or unicode — cairosvg cannot render them.
+- **Top label**: Small pill tag with category keyword (e.g. "DJANGO · AI"), accent gradient fill at low opacity
+- **Main title**: Bold white font, centered, max 2 lines, 26-28px
+- **Accent line**: Short gradient line + dot under the title
+- **Description**: One line of lighter text summarizing the article's key topics
+- **Bottom**: Site name + year in small mono font
+- **Color**: Choose a 2-3 color accent palette per article based on its category and tone — never reuse exactly the same palette twice. The background shade and accent colors should both vary.
+
+**Do NOT add**: content cards, code blocks, complex diagrams, emoji/unicode symbols, or more than 1 line of description. The title is the hero — icons and glow circles are subtle support.
+
+**Upload flow (3 steps):**
+
+**Step 1 — Generate SVG**: Design the cover following the spec above, write to `/tmp/<slug>-cover.svg`.
+
+**Step 2 — Upload**: Server converts SVG to PNG automatically (no local tools needed).
+
+```bash
+curl -s -X POST -H "Authorization: Token $IZONE_API_TOKEN" \
+  -F "file=@/tmp/<slug>-cover.svg" \
+  "$IZONE_API_BASE/skill/images/upload/"
+```
+
+Response: `{"success": true, "url": "article/upload/2026/07/17/abc123.png"}`
+
+**Step 3 — Include in publish**: Add `"img_link": "<url from step 2>"` to the publish JSON payload. Or use `POST /skill/articles/cover/` to update the cover of an already-published article:
+
+```bash
+curl -s -X POST -H "Authorization: Token $IZONE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"slug": "<slug>", "img_link": "<url>"}' \
+  "$IZONE_API_BASE/skill/articles/cover/"
+```
+
+If the article doesn't need a custom cover, omit `img_link` to use the default image.
+
 ## Mode 1: Write / Organize
 
 Triggered when user says "写文章", "整理文章", "帮我写一篇", "整理成文章", "draft an article".
@@ -128,6 +173,7 @@ Extract:
 | `body` | The full markdown, with spacing verified | Unmodified |
 | `is_publish` | Always `false` | Draft |
 | `is_top` | `true` only if user says "置顶" | |
+| `img_link` | Cover image path from upload API. Omit to use default. | Relative path |
 
 ### Step 4: Query Metadata
 

@@ -130,6 +130,12 @@ class ArticlePublishSerializer(serializers.Serializer):
     keywords = serializers.ListField(
         child=serializers.CharField(max_length=20), required=False, default=list
     )
+    img_link = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_img_link(self, value):
+        if value and value.startswith('/media/'):
+            value = value[7:]  # strip /media/ prefix
+        return value
     topic = TopicField(required=False, allow_null=True, default=None)
     topic_order = serializers.IntegerField(required=False, default=99)
     topic_short_title = serializers.CharField(
@@ -309,6 +315,7 @@ class ArticlePublishSerializer(serializers.Serializer):
             slug=validated_data['slug'],
             body=validated_data['body'],
             summary=validated_data['summary'],
+            img_link=validated_data.get('img_link', '') or '',
             is_publish=validated_data.get('is_publish', False),
             is_top=validated_data.get('is_top', False),
             category=category,
@@ -385,6 +392,9 @@ class ArticlePublishSerializer(serializers.Serializer):
         instance.title = validated_data.get('title', instance.title)
         instance.body = validated_data.get('body', instance.body)
         instance.summary = validated_data.get('summary', instance.summary)
+        img_link = validated_data.get('img_link', '')
+        if img_link:
+            instance.img_link = img_link
         instance.is_publish = validated_data.get('is_publish', instance.is_publish)
         instance.is_top = validated_data.get('is_top', instance.is_top)
         instance.category = category

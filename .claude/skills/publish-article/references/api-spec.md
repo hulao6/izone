@@ -34,6 +34,21 @@ Returns all existing categories, tags, and topics for matching.
 }
 ```
 
+### POST /skill/images/upload/
+
+Upload a cover image (PNG/JPG). SVG must be converted to PNG on the client side first.
+
+**Auth:** `Authorization: Token <token>`
+**Content-Type:** `multipart/form-data`
+**Body field:** `file` (PNG or JPG image)
+
+**Response 201:**
+```json
+{"success": true, "url": "article/upload/2026/07/17/abc123.png"}
+```
+
+Use the returned `url` as the `img_link` value when publishing.
+
 ### GET /skill/articles/?slug=\<slug\>
 
 Query an article by slug. Used to determine whether publishing will create or update.
@@ -115,7 +130,7 @@ All constraints derive from the Django model definitions.
 | `summary` | string | **yes** | 230 | — | AI-generated, not truncated. |
 | `is_publish` | boolean | no | — | `false` | Draft mode. When later set to `true`, `create_date` resets to publish time. |
 | `is_top` | boolean | no | — | `false` | |
-| `img_link` | — | — | — | — | **Never send.** Uses default image. |
+| `img_link` | string | no | — | — | Path from upload API, omit for default image. |
 
 ### Category Object
 

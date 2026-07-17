@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from django.conf import settings
 from rest_framework import viewsets, permissions
 from rest_framework.permissions import DjangoModelPermissionsOrAnonReadOnly
 from webstack.models import NavigationSite
@@ -103,6 +104,95 @@ class SkillMetaView(APIView):
 
 
 from .serializers import ArticlePublishSerializer
+
+
+class SkillImageUploadView(APIView):
+    """Skill 专用封面上传接口，接受 PNG/JPG/SVG"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'success': False, 'error': '请上传图片文件'}, status=400)
+
+        ext = file.name.split('.')[-1].lower() if '.' in file.name else ''
+        if ext not in ('png', 'jpg', 'jpeg', 'svg'):
+            return Response({'success': False, 'error': f'不支持的文件类型: .{ext}'}, status=400)
+
+        import uuid, os, subprocess, tempfile
+        from datetime import datetime
+
+        name = f"{uuid.uuid4().hex}.png"
+        today = datetime.now()
+        relative_path = f"article/upload/{today.strftime('%Y/%m/%d')}"
+        upload_dir = os.path.join(settings.MEDIA_ROOT, relative_path)
+        os.makedirs(upload_dir, exist_ok=True)
+        filepath = os.path.join(upload_dir, name)
+
+        if ext == 'svg':
+            # 使用系统工具转 SVG → PNG
+            svg_data = file.read()
+            with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as tmp:
+                tmp.write(svg_data)
+                tmp_path = tmp.name
+            try:
+                # macOS: qlmanage, Linux: rsvg-convert
+                if subprocess.run(['which', 'qlmanage'], capture_output=True).returncode == 0:
+                    subprocess.run(['qlmanage', '-t', '-s', '500', '-o', upload_dir, tmp_path],
+                                   capture_output=True, timeout=10)
+                    # qlmanage outputs <name>.svg.png, rename it
+                    generated = os.path.join(upload_dir, os.path.basename(tmp_path) + '.png')
+                    if os.path.exists(generated):
+                        os.rename(generated, filepath)
+                elif subprocess.run(['which', 'rsvg-convert'], capture_output=True).returncode == 0:
+                    subprocess.run(['rsvg-convert', '-w', '500', '-o', filepath, tmp_path],
+                                   capture_output=True, timeout=10)
+                else:
+                    return Response({
+                        'success': False,
+                        'error': '服务器缺少 SVG 转换工具（qlmanage/rsvg-convert）'
+                    }, status=500)
+            finally:
+                os.unlink(tmp_path)
+            if not os.path.exists(filepath):
+                return Response({'success': False, 'error': 'SVG 转换失败'}, status=500)
+        else:
+            from PIL import Image
+            img = Image.open(file)
+            img = img.convert('RGBA')
+            img.thumbnail((500, 300), Image.LANCZOS)
+            bg = Image.new('RGBA', (500, 300), (255, 255, 255, 255))
+            bg.paste(img, ((500 - img.width) // 2, (300 - img.height) // 2),
+                     img if img.mode == 'RGBA' else None)
+            bg = bg.convert('RGB')
+            bg.save(filepath, 'PNG')
+
+        img_path = f"{relative_path}/{name}"
+        return Response({'success': True, 'url': img_path}, status=201)
+
+
+class SkillArticleCoverView(APIView):
+    """单独更新文章封面图"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        slug = request.data.get('slug', '').strip()
+        img_link = request.data.get('img_link', '').strip()
+        if not slug:
+            return Response({'success': False, 'error': '请提供 slug'}, status=400)
+        if not img_link:
+            return Response({'success': False, 'error': '请提供 img_link'}, status=400)
+        if img_link.startswith('/media/'):
+            img_link = img_link[7:]
+
+        try:
+            article = Article.objects.get(slug=slug)
+        except Article.DoesNotExist:
+            return Response({'success': False, 'error': '文章不存在'}, status=404)
+
+        article.img_link = img_link
+        article.save(update_fields=['img_link'])
+        return Response({'success': True, 'url': img_link})
 
 
 class SkillArticleQueryView(APIView):
