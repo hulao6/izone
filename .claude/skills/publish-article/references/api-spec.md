@@ -34,9 +34,25 @@ Returns all existing categories, tags, and topics for matching.
 }
 ```
 
+### GET /skill/articles/?slug=\<slug\>
+
+Query an article by slug. Used to determine whether publishing will create or update.
+
+**Auth:** `Authorization: Token <token>`
+
+**Response 200 (exists):**
+```json
+{"success": true, "exists": true, "article": { "id": 1, "title": "...", ... }}
+```
+
+**Response 200 (not found):**
+```json
+{"success": true, "exists": false}
+```
+
 ### POST /skill/articles/publish/
 
-Create a new article (draft by default).
+Create or update an article. If the slug already exists, the article is **updated**; otherwise a new article is **created**.
 
 **Auth:** `Authorization: Token <token>`
 
@@ -65,16 +81,19 @@ Create a new article (draft by default).
 }
 ```
 
-**Response 201 (success):**
+**Response 201 (created) / 200 (updated):**
 
 ```json
 {
   "success": true,
   "id": 42,
   "url": "/article/article-slug/",
-  "title": "文章标题"
+  "title": "文章标题",
+  "action": "create"
 }
 ```
+
+`action` is `"create"` for new articles (HTTP 201) or `"update"` for existing articles (HTTP 200).
 
 **Response 400 (error):**
 

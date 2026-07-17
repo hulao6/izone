@@ -24,10 +24,11 @@ or organizing existing material.
 
 ### Structure
 
-- **Heading hierarchy**: Use `#` (title), `##` (section), `###` (sub-section). Max 3 levels. No `####`.
-- **Heading numbering**: Prefix `##` with numbers (`## 1.`, `## 2.`). Prefix `###` with sub-numbers (`### 1.1`, `### 1.2`, `### 2.1`). The `#` title is unnumbered.
+- **Heading hierarchy**: The article body must NOT contain `#` (h1) — the blog page already has a title. Use only `##` (section) and `###` (sub-section). Max 2 levels of body headings. No `####`.
+- **Heading numbering**: Prefix `##` with numbers (`## 1.`, `## 2.`). Prefix `###` with sub-numbers (`### 1.1`, `### 1.2`, `### 2.1`).
 - **Heading length**: Keep headings short and descriptive. Chinese headings ideally ≤15 chars.
 - **Paragraph length**: Break long paragraphs. Aim for 3-5 sentences max per paragraph.
+- **Article opening**: Start with a paragraph of context or summary (1-3 sentences), then the first `##` heading. Never start the body directly with a heading — give readers a moment to understand what the article is about.
 
 ### Code Blocks
 
@@ -104,6 +105,16 @@ Ensure `$IZONE_API_TOKEN` and `$IZONE_API_BASE` are set. See [references/config.
 
 - **File path** → Use Read tool
 - **Content in conversation** → Use the article just written/organized
+- **Modifying an existing article** → First query the article to check existence
+
+To check if an article already exists by slug:
+
+```bash
+curl -s -H "Authorization: Token $IZONE_API_TOKEN" "$IZONE_API_BASE/skill/articles/?slug=<slug>"
+```
+
+If `exists: true`, the article already exists. Publishing with the same slug will **update** it.
+If `exists: false`, publishing with this slug will **create** a new article.
 
 ### Step 3: Parse Metadata
 
@@ -111,7 +122,7 @@ Extract:
 
 | Field | How | Constraint |
 |-------|-----|------------|
-| `title` | First `# heading` | ≤150 chars |
+| `title` | Article topic or first `#` heading from source (if any). Body must not contain `#` headings. | ≤150 chars |
 | `slug` | Translate title to English (or pinyin for pure Chinese), lowercase, hyphens | ≤50 chars |
 | `summary` | Summarize core content in 1-2 natural sentences | ≤230 chars |
 | `body` | The full markdown, with spacing verified | Unmodified |
@@ -142,7 +153,7 @@ Present summary and wait for explicit confirmation:
 确认发布以下文章？
 
 📝 标题: 《<title>》 (<n>字符)
-🔗 Slug: <slug>
+🔗 Slug: <slug>（<新建/更新>）
 📂 分类: <name>（已有/新建）
 🏷️ 标签: <name>（已有）, <name>（新建）
 📖 主题: [<subject>] <topic>
@@ -150,7 +161,7 @@ Present summary and wait for explicit confirmation:
 📄 摘要: <summary>... (<n>字符)
 📝 状态: 草稿
 
-确认发布？
+确认提交？
 ```
 
 ### Step 7: Publish

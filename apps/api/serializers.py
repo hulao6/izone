@@ -148,13 +148,7 @@ class ArticlePublishSerializer(serializers.Serializer):
     def validate_slug(self, value):
         if not value or not value.strip():
             raise serializers.ValidationError("slug 不能为空")
-        value = value.strip()
-        if Article.objects.filter(slug=value).exists():
-            existing = Article.objects.get(slug=value)
-            raise serializers.ValidationError(
-                f"slug '{value}' 已被文章 '{existing.title}' 使用，请更换"
-            )
-        return value
+        return value.strip()
 
     def validate_body(self, value):
         if not value or not value.strip():
@@ -326,3 +320,79 @@ class ArticlePublishSerializer(serializers.Serializer):
         article.keywords.set(keyword_objects)
 
         return article
+
+    def update(self, instance, validated_data):
+        request = self.context['request']
+        category_data = validated_data.pop('category')
+        tags_data = validated_data.pop('tags', [])
+        keywords_data = validated_data.pop('keywords', [])
+        topic = validated_data.pop('topic', None)
+
+        # 处理 category
+        category_name = category_data['name']
+        category = Category.objects.filter(name=category_name).first()
+        if category:
+            new_desc = category_data.get('description', '')
+            if new_desc and new_desc != category.description and new_desc != '分类描述':
+                category.description = new_desc
+                category.save(update_fields=['description'])
+        else:
+            slug = category_data['slug']
+            if Category.objects.filter(slug=slug).exists():
+                conflict = Category.objects.get(slug=slug)
+                raise serializers.ValidationError(
+                    f"分类 '{category_name}' 不存在，尝试创建时 slug '{slug}' "
+                    f"已被分类 '{conflict.name}' 占用"
+                )
+            category = Category.objects.create(
+                name=category_name,
+                slug=slug,
+                description=category_data.get('description', '分类描述'),
+            )
+
+        # 处理 tags
+        tag_objects = []
+        for tag_data in tags_data:
+            tag_name = tag_data['name']
+            tag = Tag.objects.filter(name=tag_name).first()
+            if tag:
+                new_desc = tag_data.get('description', '')
+                if new_desc and new_desc != tag.description and new_desc != '标签描述':
+                    tag.description = new_desc
+                    tag.save(update_fields=['description'])
+            else:
+                slug = tag_data['slug']
+                if Tag.objects.filter(slug=slug).exists():
+                    conflict = Tag.objects.get(slug=slug)
+                    raise serializers.ValidationError(
+                        f"标签 '{tag_name}' 不存在，尝试创建时 slug '{slug}' "
+                        f"已被标签 '{conflict.name}' 占用"
+                    )
+                tag = Tag.objects.create(
+                    name=tag_name,
+                    slug=slug,
+                    description=tag_data.get('description', '标签描述'),
+                )
+            tag_objects.append(tag)
+
+        # 处理 keywords
+        keyword_objects = []
+        for kw_name in keywords_data:
+            kw, _ = Keyword.objects.get_or_create(name=kw_name.strip())
+            keyword_objects.append(kw)
+
+        # 更新文章字段
+        instance.title = validated_data.get('title', instance.title)
+        instance.body = validated_data.get('body', instance.body)
+        instance.summary = validated_data.get('summary', instance.summary)
+        instance.is_publish = validated_data.get('is_publish', instance.is_publish)
+        instance.is_top = validated_data.get('is_top', instance.is_top)
+        instance.category = category
+        instance.topic = topic
+        instance.topic_order = validated_data.get('topic_order', instance.topic_order)
+        instance.topic_short_title = validated_data.get('topic_short_title', '') or ''
+        instance.save()
+        instance.tags.set(tag_objects)
+        instance.keywords.set(keyword_objects)
+
+        return instance
