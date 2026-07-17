@@ -368,6 +368,27 @@ def update_article(request):
     return HttpResponseBadRequest("Invalid request.")
 
 
+@require_http_methods(["POST"])
+def publish_article(request):
+    """发布文章（将草稿转为已发布），仅管理员和作者可以操作"""
+    article_slug = request.POST.get('article_slug')
+    try:
+        article = Article.objects.get(slug=article_slug)
+        if not request.user.is_superuser and article.author != request.user:
+            return JsonResponse({'message': '无权限操作', 'code': 1}, status=403)
+        if article.is_publish:
+            return JsonResponse({'message': '文章已是发布状态', 'code': 1})
+        article.is_publish = True
+        article.save()  # save() 会自动更新 create_date 为发布时间
+        return JsonResponse({
+            'message': '发布成功',
+            'code': 0,
+            'data': {'url': article.get_absolute_url()}
+        })
+    except Article.DoesNotExist:
+        return JsonResponse({'message': '文章不存在', 'code': 1}, status=404)
+
+
 def friend_add(request):
     """
     申请友链
