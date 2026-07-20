@@ -51,10 +51,11 @@ urlpatterns = [
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # 加入这个才能显示media文件
 
 if settings.API_FLAG:
-    from api.urls import router
+    from api.urls import router, skill_urlpatterns
 
     urlpatterns.append(path('openapi/v1/', include((router.urls, router.root_view_name),
                                                namespace='api')))  # restframework
+    urlpatterns.append(path('openapi/v1/', include((skill_urlpatterns, 'skill'))))
 
 if settings.TOOL_FLAG:
     urlpatterns.append(path('tool/', include(('tool.urls', 'tool'), namespace='tool')))  # tool

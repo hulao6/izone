@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Virtual environment
-source env/bin/activate
+source /Users/leizhu/Documents/Private/MyDemos/env/bin/activate
 
 # Database
 python manage.py migrate
@@ -99,3 +99,23 @@ Docker-based: `entrypoint.sh` runs migrations + collectstatic, then starts super
 - **Template tags**: [blog/templatetags/blog_tags.py](apps/blog/templatetags/blog_tags.py) provides `get_article_list`, `get_category_list`, `get_tag_list`, `load_pages` (custom pagination), `get_feed_list`, `get_blog_infos`, etc.
 - **Signals**: `blog/signals.py` and `comment/signals.py` likely handle search index updates and notification creation on comment save.
 - **Admin customizations**: Each app has its own `admin.py` for Django admin registration.
+
+## Skill: 发布文章 (publish-article)
+
+通过 AI 对话快速发布文章到博客。
+
+**配置**: 设置环境变量 `IZONE_API_TOKEN`（在 `/adminx/authtoken/token/` 获取）和 `IZONE_API_BASE`。
+
+**API 端点**:
+- `GET  /openapi/v1/skill/meta/` — 聚合查询分类、标签、主题（需 Token 认证）
+- `POST /openapi/v1/skill/articles/publish/` — 发布文章（需 Token 认证）
+
+**使用方式**:
+- `发布文章 /path/to/article.md` — 从本地 markdown 文件发布
+- `发布文章` 然后粘贴内容 — 从对话中输入
+
+**工作流程**: AI 解析 markdown → 查询已有分类/标签/主题 → 匹配并展示预览 → 用户确认 → 发布（默认存为草稿）
+
+**认证**: 所有 skill API 使用 `Authorization: Token <token>` 请求头认证。Token 在 Admin 中创建，关联到用户。
+
+**环境要求**: 需要设置 `IZONE_API_FLAG=True` 环境变量以启用 API 路由。

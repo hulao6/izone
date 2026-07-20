@@ -33,7 +33,17 @@
     <link href="{% static 'blog/css/detail.css' %}?v={{ static_version.css_blog_detail }}" rel="stylesheet">
     <link href="{% static 'blog/css/monokai-3.css' %}?v=20241202.1" rel="stylesheet">
     <link href="{% static 'comment/css/base_comment.css' %}?v=20190114.554" rel="stylesheet">
-    <style>.mermaid {text-align: center;margin-top: 1.5rem;margin-bottom: 1.5rem;background: white;padding: 0.8rem;}</style>
+    <style>
+        .mermaid {text-align: center;margin-top: 1.5rem;margin-bottom: 1.5rem;background: white;padding: 0.8rem;}
+        #publish-btn {
+            position: fixed; bottom: 80px; right: 30px; z-index: 999;
+            background: #28a745; color: white; padding: 10px 20px;
+            border-radius: 25px; cursor: pointer; font-size: 15px;
+            box-shadow: 0 2px 12px rgba(40,167,69,.4);
+            transition: all .2s; user-select: none;
+        }
+        #publish-btn:hover { background: #218838; box-shadow: 0 4px 16px rgba(40,167,69,.6); transform: translateY(-2px); }
+    </style>
 {% endblock %}
 
 {% block base_content %}
@@ -128,6 +138,14 @@
     {% endif %}
     <!--跳转到评论按钮-->
     <div class="text-center" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
+    <!--发布按钮：仅未发布文章的管理员/作者可见-->
+    {% if not article.is_publish and user.is_authenticated %}
+    {% if user == article.author or user.is_superuser %}
+        <div id="publish-btn" title="一键发布文章">
+            <i class="fa fa-send"></i> <span>发布</span>
+        </div>
+    {% endif %}
+    {% endif %}
 {% endblock %}
 
 {% block end_file %}
@@ -162,5 +180,41 @@
     {% if article.has_mermaid %}
         <script src="{% static 'blog/js/mermaid/11.4.1/mermaid.min.js' %}"></script>
         <script>mermaid.initialize({ startOnLoad: true });</script>
+    {% endif %}
+    {% if not article.is_publish and user.is_authenticated %}
+    {% if user == article.author or user.is_superuser %}
+    <script>
+        {#一键发布#}
+        $('#publish-btn').click(function () {
+            if (confirm('确认发布这篇文章吗？')) {
+                var btn = $(this);
+                btn.html('<i class="fa fa-spinner fa-pulse"></i> <span>发布中</span>');
+                $.ajax({
+                    url: '{% url "blog:article_publish" %}',
+                    type: 'POST',
+                    data: {
+                        'article_slug': '{{ article.slug }}',
+                        'csrfmiddlewaretoken': '{{ csrf_token }}'
+                    },
+                    success: function (res) {
+                        if (res.code === 0) {
+                            btn.html('<i class="fa fa-check"></i> <span>已发布</span>');
+                            setTimeout(function () {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            alert(res.message);
+                            btn.html('<i class="fa fa-send"></i> <span>发布</span>');
+                        }
+                    },
+                    error: function () {
+                        alert('发布失败，请重试');
+                        btn.html('<i class="fa fa-send"></i> <span>发布</span>');
+                    }
+                });
+            }
+        });
+    </script>
+    {% endif %}
     {% endif %}
 {% endblock %}

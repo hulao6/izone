@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="{% static 'blog/highlight/11.9.0/css/atom-one-dark.min.css' %}">
     <script src="{% static 'blog/highlight/11.9.0/js/highlight.min.js' %}"></script>
 
-    <link rel="stylesheet" href="{% static 'blog/css/note.css' %}?v=20251220.3">
+    <link rel="stylesheet" href="{% static 'blog/css/note.css' %}?v=20260629.1">
 {% endblock %}
 
 {% block base_content %}
@@ -25,14 +25,49 @@
             <div class="search-box">
                 <input type="text" id="search-input" placeholder="搜索标题或标签…">
             </div>
+            {% if user.is_staff %}
+            <button id="btn-add-note" class="btn-add-note" title="添加笔记">+ 添加</button>
+            {% endif %}
         </header>
 
         <div id="notes-grid" class="notes-grid"></div>
     </div>
 
-    {# 通过 API 异步获取笔记数据 #}
+    {% if user.is_staff %}
+    {# 编辑弹窗 #}
+    <div id="note-modal" class="note-modal">
+        <div class="note-modal-backdrop" id="modal-backdrop"></div>
+        <div class="note-modal-content">
+            <div class="note-modal-header">
+                <h3 id="modal-title">编辑笔记</h3>
+                <button class="modal-close-btn" id="modal-close">&times;</button>
+            </div>
+            <div class="note-modal-body">
+                <label class="modal-label">标题</label>
+                <input type="text" id="edit-title" class="modal-input" placeholder="笔记标题">
+
+                <label class="modal-label">标签 <span class="label-hint">（英文逗号分隔）</span></label>
+                <input type="text" id="edit-tags" class="modal-input" placeholder="如：Python,Django">
+
+                <label class="modal-label">内容 <span class="label-hint">（支持 Markdown）</span></label>
+                <textarea id="edit-content" class="modal-textarea" rows="10" placeholder="笔记内容…"></textarea>
+
+                <label class="modal-checkbox-label">
+                    <input type="checkbox" id="edit-publish" checked> 发布
+                </label>
+            </div>
+            <div class="note-modal-footer">
+                <button id="btn-delete-note" class="btn-delete" style="display:none;">删除</button>
+                <button id="btn-cancel" class="btn-cancel">取消</button>
+                <button id="btn-save" class="btn-save">保存</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <script>
+        const isStaff = {{ user.is_staff|yesno:"true,false" }};
+
         async function fetchNotes() {
             try {
                 const resp = await fetch('{% url "blog:notes_api" %}');
@@ -54,8 +89,12 @@
             notesToShow.forEach(note => {
                 const card = document.createElement('div');
                 card.className = 'note-card';
+                card.dataset.id = note.id;
                 card.innerHTML = `
-                    <h2 class="note-title">${note.title}</h2>
+                    <h2 class="note-title">
+                        ${note.title}
+                        ${isStaff ? `<button class="note-edit-btn" data-id="${note.id}" title="编辑">&#9998;</button>` : ''}
+                    </h2>
                     <div class="note-tags">
                         ${note.tags.map(t => `<span class="tag">${t}</span>`).join('')}
                     </div>
@@ -65,6 +104,9 @@
                     hljs.highlightElement(block);
                     enhanceCodeBlock(block);
                 });
+                if (isStaff) {
+                    card.querySelector('.note-edit-btn').addEventListener('click', () => openEditor(note));
+                }
                 fragment.appendChild(card);
             });
             grid.appendChild(fragment);
@@ -108,6 +150,103 @@
                 render(filtered);
             });
         }
+
+        // ---- 编辑弹窗 ----
+        {% if user.is_staff %}
+        const modal = document.getElementById('note-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const editTitle = document.getElementById('edit-title');
+        const editTags = document.getElementById('edit-tags');
+        const editContent = document.getElementById('edit-content');
+        const editPublish = document.getElementById('edit-publish');
+        const btnSave = document.getElementById('btn-save');
+        const btnCancel = document.getElementById('btn-cancel');
+        const btnDelete = document.getElementById('btn-delete-note');
+        const modalClose = document.getElementById('modal-close');
+        const backdrop = document.getElementById('modal-backdrop');
+        const btnAdd = document.getElementById('btn-add-note');
+
+        let editingId = null;
+
+        function openEditor(note) {
+            editingId = note ? note.id : null;
+            modalTitle.textContent = note ? '编辑笔记' : '添加笔记';
+            editTitle.value = note ? note.title : '';
+            editTags.value = note ? note.tags.join(', ') : '';
+            editContent.value = note ? note.content : '';
+            editPublish.checked = note ? note.is_publish !== false : true;
+            btnDelete.style.display = note ? '' : 'none';
+            modal.classList.add('active');
+        }
+
+        function closeEditor() {
+            modal.classList.remove('active');
+            editingId = null;
+        }
+
+        btnAdd.addEventListener('click', () => {
+            openEditor(null);
+        });
+
+        modalClose.addEventListener('click', closeEditor);
+        btnCancel.addEventListener('click', closeEditor);
+        backdrop.addEventListener('click', closeEditor);
+
+        btnSave.addEventListener('click', async () => {
+            const title = editTitle.value.trim();
+            if (!title) { alert('标题不能为空'); return; }
+
+            const payload = {
+                title: title,
+                tags: editTags.value.trim(),
+                content: editContent.value,
+                is_publish: editPublish.checked,
+            };
+            if (editingId) payload.id = editingId;
+
+            try {
+                const resp = await fetch('{% url "blog:notes_api" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    alert(err.error || '保存失败');
+                    return;
+                }
+                closeEditor();
+                fetchNotes();
+            } catch (err) {
+                console.error('Save failed:', err);
+                alert('保存失败，请稍后重试');
+            }
+        });
+
+        btnDelete.addEventListener('click', async () => {
+            if (!editingId) return;
+            if (!confirm('确定删除这条笔记吗？')) return;
+
+            try {
+                const resp = await fetch('{% url "blog:notes_api" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: editingId, is_publish: false }),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    alert(err.error || '删除失败');
+                    return;
+                }
+                closeEditor();
+                fetchNotes();
+            } catch (err) {
+                console.error('Delete failed:', err);
+                alert('删除失败，请稍后重试');
+            }
+        });
+        {% endif %}
+        // ---- 编辑弹窗 END ----
 
         // 页面加载完后获取数据
         fetchNotes();
