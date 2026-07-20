@@ -309,13 +309,12 @@ class ArticlePublishSerializer(serializers.Serializer):
             keyword_objects.append(kw)
 
         # 创建文章
-        article = Article.objects.create(
+        article_kwargs = dict(
             author=request.user,
             title=validated_data['title'],
             slug=validated_data['slug'],
             body=validated_data['body'],
             summary=validated_data['summary'],
-            img_link=validated_data.get('img_link', '') or '',
             is_publish=validated_data.get('is_publish', False),
             is_top=validated_data.get('is_top', False),
             category=category,
@@ -323,6 +322,10 @@ class ArticlePublishSerializer(serializers.Serializer):
             topic_order=validated_data.get('topic_order', 99),
             topic_short_title=validated_data.get('topic_short_title', '') or '',
         )
+        img_link = validated_data.get('img_link', '')
+        if img_link:
+            article_kwargs['img_link'] = img_link
+        article = Article.objects.create(**article_kwargs)
         article.tags.set(tag_objects)
         article.keywords.set(keyword_objects)
 
