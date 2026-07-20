@@ -205,7 +205,7 @@ Extract:
 | `body` | The full markdown, with spacing verified | Unmodified |
 | `is_publish` | Default `false`（草稿）。If user explicitly says "发布"/"直接发布"/"publish", set `true` | Draft or Published |
 | `is_top` | `true` only if user says "置顶" | |
-| `img_link` | Cover image path from upload API. Omit to use default. | Relative path |
+| `img_link` | Cover image path from upload API. **Either provide a valid path, or omit the field entirely. Never set to empty string `\"\"` — causes server error.** | Relative path like `article/upload/2026/07/17/xxx.png` |
 
 ### Step 4: Query Metadata
 
@@ -278,7 +278,7 @@ print(result.stdout)
 "
 ```
 
-If a cover image was uploaded, add `'img_link': '<uploaded_path>'` to the payload dict.
+If a cover image was uploaded, add `'img_link': '<uploaded_path>'` to the payload dict. If no cover, **omit `img_link` from the payload entirely** — do not pass `null`, `\"\"`, or any falsy value. The model will use the default image.
 
 ### Step 8: Confirm Result
 
